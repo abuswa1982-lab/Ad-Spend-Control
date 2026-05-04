@@ -1,0 +1,1667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ad Spend Control · Modonix</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0e14;
+  --bg-elev: #11161d;
+  --bg-elev-2: #161c25;
+  --border: #1f2731;
+  --border-strong: #2d3744;
+  --text: #d6deeb;
+  --text-dim: #8b95a7;
+  --text-faint: #5a6473;
+  --accent: #ffb800;
+  --accent-dim: #c98e00;
+  --red: #f85149;
+  --red-bg: #2a0f10;
+  --amber: #d29922;
+  --amber-bg: #2a1f0a;
+  --green: #3fb950;
+  --green-bg: #0f2615;
+  --blue: #58a6ff;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+.mono { font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums; }
+
+/* HEADER */
+header {
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.brand-mark {
+  width: 28px; height: 28px;
+  background: var(--accent);
+  color: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 14px;
+  border-radius: 2px;
+}
+.brand-text {
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  font-size: 15px;
+}
+.brand-sub {
+  color: var(--text-faint);
+  font-size: 11px;
+  font-family: 'IBM Plex Mono', monospace;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-left: 8px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+}
+.status-bar {
+  display: flex;
+  gap: 24px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 0.5px;
+}
+.status-bar .stat-key { color: var(--text-faint); text-transform: uppercase; }
+.status-bar .stat-val { color: var(--text); }
+.status-dot {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  margin-right: 6px;
+}
+
+/* TABS */
+nav.tabs {
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  display: flex;
+  gap: 0;
+}
+.tab-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  padding: 14px 20px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  letter-spacing: 0.3px;
+  transition: all 0.15s;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* MAIN */
+main {
+  padding: 24px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* TOOLBAR */
+.toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.toolbar-spacer { flex: 1; }
+
+button.btn {
+  background: var(--bg-elev-2);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  padding: 7px 14px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.12s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+button.btn:hover { background: var(--border); border-color: var(--text-faint); }
+button.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+button.btn.primary {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+button.btn.primary:hover { background: var(--accent-dim); border-color: var(--accent-dim); }
+button.btn.danger {
+  color: var(--red);
+  border-color: var(--red);
+}
+button.btn.danger:hover { background: var(--red-bg); }
+button.btn.small { padding: 4px 10px; font-size: 12px; }
+
+input[type="text"], input[type="number"], input[type="password"], textarea, select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  padding: 7px 10px;
+  font-family: inherit;
+  font-size: 13px;
+  border-radius: 3px;
+  outline: none;
+}
+input:focus, textarea:focus { border-color: var(--accent); }
+input.search { width: 280px; font-family: 'IBM Plex Mono', monospace; }
+
+/* STAT CARDS */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.stat-card {
+  background: var(--bg-elev);
+  padding: 14px 16px;
+}
+.stat-card .label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-faint);
+  margin-bottom: 4px;
+}
+.stat-card .value {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--text);
+}
+.stat-card .value.red { color: var(--red); }
+.stat-card .value.amber { color: var(--amber); }
+.stat-card .value.green { color: var(--green); }
+.stat-card .value.accent { color: var(--accent); }
+.stat-card .sub {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-family: 'IBM Plex Mono', monospace;
+  margin-top: 2px;
+}
+
+/* TOOLTIP */
+.tip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  color: var(--text-dim);
+  font-size: 9px;
+  font-weight: 600;
+  margin-left: 5px;
+  cursor: help;
+  position: relative;
+  font-family: 'IBM Plex Mono', monospace;
+  vertical-align: middle;
+  transition: all 0.12s;
+}
+.tip:hover {
+  background: var(--accent);
+  color: var(--bg);
+}
+.tip::before, .tip::after {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  z-index: 100;
+}
+.tip::before {
+  content: attr(data-tip);
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #000;
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  padding: 10px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 400;
+  font-family: 'IBM Plex Sans', sans-serif;
+  width: 260px;
+  text-align: left;
+  line-height: 1.5;
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: pre-wrap;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+}
+.tip::after {
+  content: '';
+  bottom: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: var(--border-strong);
+}
+.tip:hover::before, .tip:hover::after,
+.tip:focus::before, .tip:focus::after {
+  opacity: 1;
+}
+/* Tooltip flip-right for right-edge cards */
+.tip.tip-left::before {
+  left: auto; right: 0; transform: none;
+}
+.tip.tip-left::after {
+  left: auto; right: 8px; transform: none;
+}
+/* Tooltip flip-down for top-row cards (no room above) */
+.tip.tip-below::before {
+  bottom: auto;
+  top: calc(100% + 8px);
+}
+.tip.tip-below::after {
+  bottom: auto;
+  top: calc(100% + 2px);
+  border-top-color: transparent;
+  border-bottom-color: var(--border-strong);
+}
+/* Combined: below + left-anchored (top-right cards) */
+.tip.tip-below.tip-left::before {
+  left: auto; right: 0; transform: none;
+}
+.tip.tip-below.tip-left::after {
+  left: auto; right: 8px; transform: none;
+}
+
+th .tip { margin-left: 4px; }
+th .tip::before {
+  font-size: 11px;
+  width: 220px;
+}
+
+/* TABLE */
+.table-wrap {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.table-header {
+  padding: 10px 14px;
+  background: var(--bg-elev-2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.table-header.cut { color: var(--red); }
+.table-header.hold { color: var(--amber); }
+.table-header.scale { color: var(--green); }
+.table-header .count {
+  font-family: 'IBM Plex Mono', monospace;
+  color: var(--text-faint);
+  font-weight: 400;
+  margin-left: 8px;
+}
+
+.table-scroll {
+  max-height: 500px;
+  overflow-y: auto;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+th {
+  background: var(--bg-elev-2);
+  color: var(--text-dim);
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  cursor: pointer;
+  user-select: none;
+}
+th:hover { color: var(--text); }
+th.num { text-align: right; }
+th .sort-ind {
+  display: inline-block;
+  margin-left: 4px;
+  color: var(--accent);
+  font-size: 10px;
+}
+td {
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+}
+td.num { text-align: right; }
+td.sku { font-weight: 500; color: var(--text); }
+td.text { font-family: inherit; }
+tr:hover td { background: rgba(255, 184, 0, 0.04); }
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-family: 'IBM Plex Mono', monospace;
+}
+.badge.cut { background: var(--red-bg); color: var(--red); border: 1px solid var(--red); }
+.badge.hold { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber); }
+.badge.scale { background: var(--green-bg); color: var(--green); border: 1px solid var(--green); }
+
+/* EMPTY STATE */
+.empty-state {
+  background: var(--bg-elev);
+  border: 1px dashed var(--border-strong);
+  border-radius: 4px;
+  padding: 60px 24px;
+  text-align: center;
+  color: var(--text-dim);
+}
+.empty-state h3 {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.empty-state p {
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+
+/* SETTINGS PANEL */
+.settings-panel {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+.setting {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.setting label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-faint);
+}
+.setting .hint {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+.section-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-faint);
+  margin-bottom: 8px;
+  margin-top: 24px;
+  font-weight: 600;
+}
+
+/* PASTE AREA */
+.paste-area {
+  width: 100%;
+  min-height: 120px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  padding: 10px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  border-radius: 3px;
+  resize: vertical;
+}
+
+/* AI OUTPUT */
+.ai-output {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 20px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text);
+  white-space: pre-wrap;
+  font-family: 'IBM Plex Sans', sans-serif;
+  min-height: 200px;
+}
+.ai-output strong { color: var(--accent); }
+.ai-output em { color: var(--text-dim); }
+
+/* MODAL */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.7);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.modal-overlay.show { display: flex; }
+.modal {
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 24px;
+  min-width: 400px;
+  max-width: 90vw;
+}
+.modal h2 {
+  font-size: 16px;
+  margin-bottom: 16px;
+  color: var(--accent);
+}
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+/* TOAST */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-left: 3px solid var(--accent);
+  padding: 12px 18px;
+  border-radius: 4px;
+  font-size: 13px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.25s;
+  z-index: 2000;
+  max-width: 400px;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.error { border-left-color: var(--red); }
+.toast.success { border-left-color: var(--green); }
+
+/* PAGINATION */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--bg-elev-2);
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-dim);
+  font-family: 'IBM Plex Mono', monospace;
+}
+.pagination .controls { display: flex; gap: 4px; align-items: center; }
+.page-info { color: var(--text-faint); }
+
+/* COLLAPSIBLE */
+details summary {
+  cursor: pointer;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  user-select: none;
+}
+details[open] summary { margin-bottom: 8px; }
+details summary:hover { color: var(--text); }
+
+/* INLINE EDIT */
+.editable {
+  cursor: text;
+  border-bottom: 1px dotted var(--text-faint);
+}
+.editable:hover { color: var(--accent); }
+.edit-input {
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 2px 6px;
+  font-family: inherit;
+  font-size: 12px;
+  width: 80px;
+  border-radius: 2px;
+}
+
+/* WARN BANNER */
+.banner {
+  background: var(--amber-bg);
+  border: 1px solid var(--amber);
+  color: var(--amber);
+  padding: 10px 14px;
+  border-radius: 3px;
+  font-size: 12px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.banner.info { background: rgba(88, 166, 255, 0.08); border-color: var(--blue); color: var(--blue); }
+
+/* Help text */
+.help-text {
+  color: var(--text-dim);
+  font-size: 12px;
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
+
+footer {
+  text-align: center;
+  padding: 32px 24px;
+  color: var(--text-faint);
+  font-size: 11px;
+  font-family: 'IBM Plex Mono', monospace;
+  letter-spacing: 0.5px;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-mark">M</div>
+    <span class="brand-text">Ad Spend Control</span>
+    <span class="brand-sub">Modonix · v1.0</span>
+  </div>
+  <div class="status-bar">
+    <div><span class="stat-key">SKU MASTER:</span> <span class="stat-val mono" id="header-sku-count">0</span></div>
+    <div><span class="stat-key">LAST ANALYSIS:</span> <span class="stat-val mono" id="header-last-analysis">Never</span></div>
+    <div><span class="status-dot"></span><span class="stat-val mono">LOCAL</span></div>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="master">SKU Master</button>
+  <button class="tab-btn" data-tab="ads">Google Ads Analysis</button>
+  <button class="tab-btn" data-tab="ai">AI Recommendations</button>
+</nav>
+
+<main>
+
+  <!-- SKU MASTER TAB -->
+  <section class="tab-panel active" id="tab-master">
+
+    <div id="master-empty" class="empty-state" style="display:none;">
+      <h3>No SKU master loaded</h3>
+      <p>Upload <code>skus-seed.csv</code> to get started, or import your own SKU + margin file.</p>
+      <button class="btn primary" onclick="document.getElementById('master-import').click()">Import CSV</button>
+    </div>
+
+    <div id="master-loaded" style="display:none;">
+      <div class="toolbar">
+        <button class="btn" onclick="document.getElementById('master-import').click()">Import CSV</button>
+        <button class="btn" onclick="exportMaster()">Export CSV</button>
+        <button class="btn" onclick="openAddSKU()">+ Add SKU</button>
+        <input type="file" id="master-import" style="display:none;" accept=".csv,.txt" onchange="importMaster(event)">
+        <div class="toolbar-spacer"></div>
+        <input type="text" class="search mono" id="master-search" placeholder="Search SKU..." oninput="renderMasterTable()">
+        <button class="btn danger" onclick="clearMaster()">Clear All</button>
+      </div>
+
+      <div class="table-wrap">
+        <div class="table-header">
+          SKU Master
+          <span class="count" id="master-count-display"></span>
+        </div>
+        <div class="table-scroll" id="master-table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th data-sort="sku">SKU</th>
+                <th class="num" data-sort="margin">Margin %</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="master-tbody"></tbody>
+          </table>
+        </div>
+        <div class="pagination">
+          <span class="page-info" id="master-page-info">—</span>
+          <div class="controls">
+            <button class="btn small" onclick="masterPage(-1)">◀ Prev</button>
+            <button class="btn small" onclick="masterPage(1)">Next ▶</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- GOOGLE ADS ANALYSIS TAB -->
+  <section class="tab-panel" id="tab-ads">
+
+    <div class="banner info">
+      <span>📊</span>
+      <div>
+        Paste your Google Ads weekly export below (or upload CSV). Required columns: <strong>Item ID</strong>, <strong>Cost</strong>, <strong>Conv. value</strong>. Column headers are matched case-insensitively.
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <button class="btn" onclick="document.getElementById('ads-import').click()">Upload CSV</button>
+      <input type="file" id="ads-import" style="display:none;" accept=".csv,.txt,.tsv" onchange="importAdsFile(event)">
+      <button class="btn" onclick="loadSampleAds()">Load Sample Data</button>
+      <div class="toolbar-spacer"></div>
+      <button class="btn primary" onclick="runAnalysis()">▶ Run Analysis</button>
+    </div>
+
+    <details>
+      <summary>⚙ Threshold settings & options</summary>
+      <div class="settings-panel">
+        <div class="settings-grid">
+          <div class="setting">
+            <label>SCALE if absorption ≤</label>
+            <input type="number" id="threshold-scale" value="40" min="0" max="100" step="1">
+            <span class="hint">% of gross profit</span>
+          </div>
+          <div class="setting">
+            <label>HOLD if absorption ≤</label>
+            <input type="number" id="threshold-hold" value="60" min="0" max="100" step="1">
+            <span class="hint">% of gross profit</span>
+          </div>
+          <div class="setting">
+            <label>CUT if absorption ></label>
+            <input type="number" id="threshold-cut" value="60" min="0" max="100" step="1" disabled>
+            <span class="hint">auto = HOLD threshold</span>
+          </div>
+          <div class="setting">
+            <label>Min spend before auto-CUT</label>
+            <input type="number" id="min-spend" value="25" min="0" step="1">
+            <span class="hint">$ — protects new SKUs</span>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <div style="margin: 12px 0;">
+      <textarea id="ads-paste" class="paste-area" placeholder="Or paste tab-separated data here:&#10;Item ID&#9;Cost&#9;Conv. value&#10;sku-001&#9;42.50&#9;130.00&#10;..."></textarea>
+    </div>
+
+    <div id="analysis-results" style="display:none;">
+
+      <details style="margin-bottom: 16px;">
+        <summary style="background: var(--bg-elev); border-color: var(--border-strong); color: var(--accent); font-weight: 600;">📖 How to read this report (click to expand)</summary>
+        <div style="background: var(--bg-elev); border: 1px solid var(--border); border-radius: 4px; padding: 18px 22px; font-size: 13px; line-height: 1.7; color: var(--text);">
+          <p style="margin-bottom: 12px;"><strong style="color: var(--accent);">The one number that matters:</strong> <em style="color: var(--text-dim);">Net Contribution.</em> If it's green, your ads are making money. If it's red, they're losing money.</p>
+
+          <p style="margin-bottom: 12px;"><strong style="color: var(--accent);">How the math works (using one SKU as an example):</strong></p>
+          <p style="margin-bottom: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; background: var(--bg); padding: 10px 14px; border-radius: 3px; border-left: 2px solid var(--accent);">
+            You spent $60 on ads → ads brought in $100 of sales (Revenue)<br>
+            Your margin on this SKU is 25% → you actually keep $25 of that $100 (Expected GP)<br>
+            Ads cost $60, but profit was only $25 → you LOST $35 on this SKU ($ Wasted)<br>
+            Absorption = $60 ÷ $25 = 240% → ads ate 2.4× your profit
+          </p>
+          <p style="margin-bottom: 12px; font-style: italic; color: var(--text-dim);">Anything over 100% absorption means the ads cost more than the profit they made.</p>
+
+          <p style="margin-bottom: 12px;"><strong style="color: var(--accent);">The three buckets:</strong></p>
+          <p style="margin-bottom: 6px;"><span style="color: var(--red); font-weight: 600;">🔴 CUT</span> — Ads ate too much profit (or made none). Pausing these saves you money immediately.</p>
+          <p style="margin-bottom: 6px;"><span style="color: var(--amber); font-weight: 600;">🟡 HOLD</span> — Profitable but tight. Watch them — if they slip, they go to CUT.</p>
+          <p style="margin-bottom: 12px;"><span style="color: var(--green); font-weight: 600;">🟢 SCALE</span> — Winners. Ads cost only a small slice of profit. Push more budget here.</p>
+
+          <p style="margin-bottom: 0;"><strong style="color: var(--accent);">What to do this period:</strong> Look at the top 5–10 items in the CUT list (sorted by $ Wasted). Pause those in Google Ads. The dollar amounts in that column = what you save next period.</p>
+
+          <p style="margin-top: 14px; font-size: 11px; color: var(--text-faint); border-top: 1px solid var(--border); padding-top: 10px;">💡 Hover any "?" icon below for a quick reminder of what each number means.</p>
+        </div>
+      </details>
+
+      <h3 class="section-title">Summary</h3>
+      <div class="stat-grid" id="summary-stats"></div>
+
+      <h3 class="section-title">Cut now — overspending items</h3>
+      <div class="table-wrap">
+        <div class="table-header cut">🔴 CUT — pause or kill these <span class="count" id="cut-count"></span>
+          <div style="margin-left: auto; display: flex; align-items: center; gap: 10px;">
+            <label style="font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500;">Hide below $</label>
+            <input type="number" id="filter-cut-min" value="20" min="0" step="1" style="width: 70px; padding: 4px 8px; font-size: 12px;" oninput="onFilterChange()">
+            <button class="btn small" onclick="exportResults('cut')">Export CSV</button>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th data-results-sort="sku">SKU</th>
+                <th class="num" data-results-sort="spend">Spend<span class="tip tip-below" data-tip="What you paid Google Ads for this SKU this period." tabindex="0">?</span></th>
+                <th class="num" data-results-sort="revenue">Revenue<span class="tip tip-below" data-tip="Sales this SKU's ads brought in. Top-line, before cost of goods." tabindex="0">?</span></th>
+                <th class="num" data-results-sort="margin">Margin<span class="tip tip-below" data-tip="Your gross margin on this SKU. From your master file. The % you keep after paying the supplier." tabindex="0">?</span></th>
+                <th class="num" data-results-sort="gp">Exp. GP<span class="tip tip-below" data-tip="Expected Gross Profit = Revenue × Margin. The actual money you earned, BEFORE paying for ads." tabindex="0">?</span></th>
+                <th class="num" data-results-sort="absorption">Absorption<span class="tip tip-below" data-tip="What % of your gross profit got eaten by ad spend.\n\nMath: Spend ÷ Expected GP.\n\nOver 100% = ads cost more than the profit they generated." tabindex="0">?</span></th>
+                <th class="num" data-results-sort="wasted">$ Wasted ▼<span class="tip tip-below tip-left" data-tip="The actual dollar loss this period.\n\nMath: Spend − Expected GP.\n\nPause this SKU's ads and you save this much next period." tabindex="0">?</span></th>
+              </tr>
+            </thead>
+            <tbody id="cut-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <h3 class="section-title">Hold & watch</h3>
+      <div class="table-wrap">
+        <div class="table-header hold">🟡 HOLD — borderline, monitor next week <span class="count" id="hold-count"></span>
+          <button class="btn small" style="margin-left:auto;" onclick="exportResults('hold')">Export CSV</button>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th class="num">Spend</th>
+                <th class="num">Revenue</th>
+                <th class="num">Margin</th>
+                <th class="num">Exp. GP</th>
+                <th class="num">Absorption</th>
+              </tr>
+            </thead>
+            <tbody id="hold-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <h3 class="section-title">Scale — winners</h3>
+      <div class="table-wrap">
+        <div class="table-header scale">🟢 SCALE — push more budget here <span class="count" id="scale-count"></span>
+          <button class="btn small" style="margin-left:auto;" onclick="exportResults('scale')">Export CSV</button>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th class="num">Spend</th>
+                <th class="num">Revenue</th>
+                <th class="num">Margin</th>
+                <th class="num">Exp. GP</th>
+                <th class="num">Absorption</th>
+              </tr>
+            </thead>
+            <tbody id="scale-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <h3 class="section-title">Unmatched — not in master</h3>
+      <div class="table-wrap">
+        <div class="table-header" style="color: var(--text-dim);">⚠ UNMATCHED — add these to your SKU master <span class="count" id="unmatched-count"></span>
+          <button class="btn small" style="margin-left:auto;" onclick="exportResults('unmatched')">Export CSV</button>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th class="num">Spend</th>
+                <th class="num">Revenue</th>
+              </tr>
+            </thead>
+            <tbody id="unmatched-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- AI RECOMMENDATIONS TAB -->
+  <section class="tab-panel" id="tab-ai">
+
+    <div class="banner info">
+      <span>🤖</span>
+      <div>
+        After running an analysis, send your CUT list to Claude for strategic insights — pattern detection, root-cause analysis, and prioritized actions. Requires an Anthropic API key (stored locally in your browser).
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <input type="password" id="api-key" placeholder="sk-ant-..." style="flex: 1; min-width: 300px;" oninput="saveAPIKey()">
+      <button class="btn primary" onclick="generateAIRecommendations()" id="ai-generate-btn">Generate Recommendations</button>
+    </div>
+
+    <p class="help-text">Your API key is stored only in this browser's localStorage. The app calls the Anthropic API directly from your browser. Get a key at <span class="mono">console.anthropic.com</span>.</p>
+
+    <div id="ai-output-wrap" style="display:none;">
+      <h3 class="section-title">Strategic Analysis</h3>
+      <div class="ai-output" id="ai-output">Click "Generate Recommendations" to analyze your CUT list.</div>
+    </div>
+
+  </section>
+
+</main>
+
+<footer>
+  AD SPEND CONTROL · BUILT BY MODONIX · DATA STAYS LOCAL
+</footer>
+
+<!-- ADD SKU MODAL -->
+<div class="modal-overlay" id="add-sku-modal">
+  <div class="modal">
+    <h2>Add new SKU</h2>
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <div class="setting">
+        <label>SKU</label>
+        <input type="text" id="new-sku" placeholder="e.g. ALFAE60603-12EA">
+      </div>
+      <div class="setting">
+        <label>Margin (decimal, e.g. 0.25 for 25%)</label>
+        <input type="number" id="new-margin" placeholder="0.25" step="0.001" min="0" max="1">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('add-sku-modal')">Cancel</button>
+      <button class="btn primary" onclick="addSKU()">Add</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================================
+// STATE
+// ============================================================================
+let state = {
+  master: [],          // [{sku, margin}]
+  masterIndex: {},     // sku -> index for fast lookup
+  ads: [],             // raw imported [{sku, cost, revenue}]
+  results: {           // analysis output
+    cut: [], hold: [], scale: [], unmatched: []
+  },
+  thresholds: { scale: 40, hold: 60, minSpend: 25 },
+  filters: { hideCutBelow: 20 },
+  ui: {
+    masterPage: 0,
+    masterPerPage: 100,
+    masterSort: { col: 'sku', dir: 'asc' },
+    resultsSort: { col: 'wasted', dir: 'desc' }
+  }
+};
+
+// ============================================================================
+// PERSISTENCE
+// ============================================================================
+const STORAGE_KEYS = {
+  MASTER: 'modonix_ad_master_v1',
+  THRESHOLDS: 'modonix_ad_thresholds_v1',
+  FILTERS: 'modonix_ad_filters_v1',
+  API_KEY: 'modonix_ad_apikey_v1',
+  LAST_ANALYSIS: 'modonix_ad_last_analysis_v1'
+};
+
+function saveMaster() {
+  try {
+    localStorage.setItem(STORAGE_KEYS.MASTER, JSON.stringify(state.master));
+  } catch (e) {
+    toast('Storage full — try fewer SKUs', 'error');
+  }
+}
+function loadMaster() {
+  const raw = localStorage.getItem(STORAGE_KEYS.MASTER);
+  if (raw) {
+    try { state.master = JSON.parse(raw); rebuildIndex(); } catch (e) {}
+  }
+}
+function saveThresholds() {
+  state.thresholds.scale = +document.getElementById('threshold-scale').value;
+  state.thresholds.hold = +document.getElementById('threshold-hold').value;
+  state.thresholds.minSpend = +document.getElementById('min-spend').value;
+  document.getElementById('threshold-cut').value = state.thresholds.hold;
+  localStorage.setItem(STORAGE_KEYS.THRESHOLDS, JSON.stringify(state.thresholds));
+}
+function loadThresholds() {
+  const raw = localStorage.getItem(STORAGE_KEYS.THRESHOLDS);
+  if (raw) {
+    try {
+      state.thresholds = JSON.parse(raw);
+      document.getElementById('threshold-scale').value = state.thresholds.scale;
+      document.getElementById('threshold-hold').value = state.thresholds.hold;
+      document.getElementById('threshold-cut').value = state.thresholds.hold;
+      document.getElementById('min-spend').value = state.thresholds.minSpend;
+    } catch (e) {}
+  }
+}
+function saveAPIKey() {
+  const key = document.getElementById('api-key').value;
+  localStorage.setItem(STORAGE_KEYS.API_KEY, key);
+}
+function loadAPIKey() {
+  const k = localStorage.getItem(STORAGE_KEYS.API_KEY);
+  if (k) document.getElementById('api-key').value = k;
+}
+function saveFilters() {
+  state.filters.hideCutBelow = +document.getElementById('filter-cut-min').value || 0;
+  localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(state.filters));
+}
+function loadFilters() {
+  const raw = localStorage.getItem(STORAGE_KEYS.FILTERS);
+  if (raw) {
+    try {
+      state.filters = JSON.parse(raw);
+      const el = document.getElementById('filter-cut-min');
+      if (el) el.value = state.filters.hideCutBelow;
+    } catch (e) {}
+  }
+}
+function onFilterChange() {
+  saveFilters();
+  if (state.results.cut.length || state.results.hold.length || state.results.scale.length) {
+    renderResults();
+  }
+}
+
+// ============================================================================
+// INDEXING
+// ============================================================================
+function rebuildIndex() {
+  state.masterIndex = {};
+  state.master.forEach((s, i) => {
+    state.masterIndex[s.sku.toUpperCase()] = i;
+  });
+}
+
+// ============================================================================
+// CSV PARSING
+// ============================================================================
+function parseCSV(text) {
+  // Robust-enough CSV parser. Handles quotes, commas in quotes, tab fallback.
+  const lines = text.replace(/\r\n/g, '\n').split('\n').filter(l => l.trim());
+  if (!lines.length) return [];
+
+  // Detect delimiter
+  const first = lines[0];
+  let delim = ',';
+  if (first.split('\t').length > first.split(',').length) delim = '\t';
+  else if (first.split(';').length > first.split(',').length) delim = ';';
+
+  const parseLine = (line) => {
+    const fields = [];
+    let cur = '';
+    let inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') {
+        if (inQ && line[i+1] === '"') { cur += '"'; i++; }
+        else inQ = !inQ;
+      } else if (c === delim && !inQ) {
+        fields.push(cur);
+        cur = '';
+      } else { cur += c; }
+    }
+    fields.push(cur);
+    return fields.map(f => f.trim());
+  };
+
+  const headers = parseLine(lines[0]).map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const vals = parseLine(lines[i]);
+    const row = {};
+    headers.forEach((h, j) => row[h] = vals[j] || '');
+    rows.push(row);
+  }
+  return rows;
+}
+
+function escapeCSV(v) {
+  if (v == null) return '';
+  const s = String(v);
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
+function downloadCSV(filename, headers, rows) {
+  const csv = [
+    headers.join(','),
+    ...rows.map(r => r.map(escapeCSV).join(','))
+  ].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+}
+
+// ============================================================================
+// MASTER IMPORT/EXPORT
+// ============================================================================
+function importMaster(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const rows = parseCSV(e.target.result);
+    const newMaster = [];
+    let skipped = 0;
+    rows.forEach(r => {
+      const sku = (r.sku || r.skugroup || r.itemid || r.id || '').trim();
+      let margin = parseFloat(r.margin || r['margin'] || r.marginpct || '');
+      if (!sku || isNaN(margin)) { skipped++; return; }
+      // Auto-detect: if margin > 1, treat as percentage and divide by 100
+      if (margin > 1) margin = margin / 100;
+      newMaster.push({ sku, margin: Math.round(margin * 1000000) / 1000000 });
+    });
+    state.master = newMaster;
+    rebuildIndex();
+    saveMaster();
+    renderMaster();
+    toast(`Imported ${newMaster.length} SKUs${skipped ? ` (${skipped} skipped)` : ''}`, 'success');
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function exportMaster() {
+  if (!state.master.length) { toast('Nothing to export', 'error'); return; }
+  const today = new Date().toISOString().slice(0, 10);
+  downloadCSV(
+    `sku-master-${today}.csv`,
+    ['SKU', 'Margin'],
+    state.master.map(s => [s.sku, s.margin])
+  );
+  toast(`Exported ${state.master.length} SKUs`, 'success');
+}
+
+function clearMaster() {
+  if (!confirm('Delete all ' + state.master.length + ' SKUs from master? This cannot be undone unless you re-import.')) return;
+  state.master = [];
+  state.masterIndex = {};
+  saveMaster();
+  renderMaster();
+  toast('Master cleared', 'success');
+}
+
+function openAddSKU() {
+  document.getElementById('new-sku').value = '';
+  document.getElementById('new-margin').value = '';
+  document.getElementById('add-sku-modal').classList.add('show');
+}
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+function addSKU() {
+  const sku = document.getElementById('new-sku').value.trim();
+  let margin = parseFloat(document.getElementById('new-margin').value);
+  if (!sku || isNaN(margin)) { toast('SKU and margin required', 'error'); return; }
+  if (margin > 1) margin = margin / 100;
+  if (state.masterIndex[sku.toUpperCase()] !== undefined) {
+    toast('SKU already exists — edit it directly in the table', 'error');
+    return;
+  }
+  state.master.push({ sku, margin });
+  rebuildIndex();
+  saveMaster();
+  renderMaster();
+  closeModal('add-sku-modal');
+  toast('SKU added', 'success');
+}
+
+// ============================================================================
+// MASTER TABLE RENDER
+// ============================================================================
+function renderMaster() {
+  const has = state.master.length > 0;
+  document.getElementById('master-empty').style.display = has ? 'none' : 'block';
+  document.getElementById('master-loaded').style.display = has ? 'block' : 'none';
+  document.getElementById('header-sku-count').textContent = state.master.length.toLocaleString();
+  if (has) renderMasterTable();
+}
+
+function renderMasterTable() {
+  const search = document.getElementById('master-search').value.toLowerCase().trim();
+  let rows = state.master;
+  if (search) rows = rows.filter(s => s.sku.toLowerCase().includes(search));
+
+  // Sort
+  const { col, dir } = state.ui.masterSort;
+  rows = [...rows].sort((a, b) => {
+    let va = a[col], vb = b[col];
+    if (typeof va === 'string') { va = va.toLowerCase(); vb = vb.toLowerCase(); }
+    return dir === 'asc' ? (va > vb ? 1 : va < vb ? -1 : 0) : (va < vb ? 1 : va > vb ? -1 : 0);
+  });
+
+  document.getElementById('master-count-display').textContent =
+    `${rows.length.toLocaleString()} of ${state.master.length.toLocaleString()}`;
+
+  // Pagination
+  const perPage = state.ui.masterPerPage;
+  const totalPages = Math.max(1, Math.ceil(rows.length / perPage));
+  if (state.ui.masterPage >= totalPages) state.ui.masterPage = totalPages - 1;
+  if (state.ui.masterPage < 0) state.ui.masterPage = 0;
+  const start = state.ui.masterPage * perPage;
+  const pageRows = rows.slice(start, start + perPage);
+
+  const tbody = document.getElementById('master-tbody');
+  tbody.innerHTML = pageRows.map(s => {
+    const idx = state.masterIndex[s.sku.toUpperCase()];
+    return `
+      <tr>
+        <td class="sku">${escapeHTML(s.sku)}</td>
+        <td class="num"><span class="editable" onclick="editMargin(${idx}, this)">${(s.margin * 100).toFixed(2)}%</span></td>
+        <td class="num"><button class="btn small danger" onclick="deleteSKU(${idx})">Delete</button></td>
+      </tr>
+    `;
+  }).join('');
+
+  document.getElementById('master-page-info').textContent =
+    `Page ${state.ui.masterPage + 1} of ${totalPages} · showing ${start + 1}-${Math.min(start + perPage, rows.length)}`;
+}
+
+function masterPage(delta) {
+  state.ui.masterPage += delta;
+  renderMasterTable();
+}
+
+function editMargin(idx, el) {
+  const cur = state.master[idx].margin;
+  const span = el;
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.step = '0.001';
+  input.className = 'edit-input mono';
+  input.value = (cur * 100).toFixed(2);
+  span.replaceWith(input);
+  input.focus(); input.select();
+  const commit = () => {
+    let v = parseFloat(input.value);
+    if (!isNaN(v)) {
+      if (v > 1) v = v / 100;
+      else if (v > 0 && cur > 0.01) v = v;  // assume already decimal if input < 1
+      // but if user typed 0.25 they meant 25%, if they typed 25 they meant 25
+      // we already divided by 100 above when v > 1, so just use v as decimal
+      state.master[idx].margin = Math.round(v * 1000000) / 1000000;
+      saveMaster();
+    }
+    renderMasterTable();
+  };
+  input.onblur = commit;
+  input.onkeydown = (e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') renderMasterTable(); };
+}
+
+function deleteSKU(idx) {
+  if (!confirm(`Delete ${state.master[idx].sku}?`)) return;
+  state.master.splice(idx, 1);
+  rebuildIndex();
+  saveMaster();
+  renderMasterTable();
+}
+
+function escapeHTML(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+}
+
+// ============================================================================
+// SORT HANDLERS
+// ============================================================================
+document.querySelectorAll('#tab-master th[data-sort]').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.sort;
+    const cur = state.ui.masterSort;
+    state.ui.masterSort = { col, dir: cur.col === col && cur.dir === 'asc' ? 'desc' : 'asc' };
+    renderMasterTable();
+  });
+});
+
+document.querySelectorAll('#tab-ads th[data-results-sort]').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.resultsSort;
+    const cur = state.ui.resultsSort;
+    state.ui.resultsSort = { col, dir: cur.col === col && cur.dir === 'asc' ? 'desc' : 'asc' };
+    renderResults();
+  });
+});
+
+// ============================================================================
+// ADS IMPORT / ANALYSIS
+// ============================================================================
+function importAdsFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    document.getElementById('ads-paste').value = e.target.result;
+    toast('Loaded ' + file.name + ' — click Run Analysis', 'success');
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function loadSampleAds() {
+  // Load a few real-looking samples from the master
+  if (!state.master.length) { toast('Load SKU master first', 'error'); return; }
+  const samples = state.master.slice(0, 30);
+  let txt = 'Item ID\tCost\tConv. value\n';
+  samples.forEach((s, i) => {
+    const cost = +(Math.random() * 80 + 5).toFixed(2);
+    const rev = Math.random() < 0.3 ? 0 : +(Math.random() * 400 + 20).toFixed(2);
+    txt += `${s.sku}\t${cost}\t${rev}\n`;
+  });
+  document.getElementById('ads-paste').value = txt;
+  toast('Sample data loaded — click Run Analysis', 'success');
+}
+
+function parseAdsData(text) {
+  const rows = parseCSV(text);
+  const ads = [];
+  rows.forEach(r => {
+    // Match flexible column names
+    const sku = (r.itemid || r.sku || r.id || r.productid || r.item || '').trim();
+    const cost = parseFloat(r.cost || r.spend || r.adspend || '0') || 0;
+    const revenue = parseFloat(r.convvalue || r.conversionvalue || r.revenue || r.value || '0') || 0;
+    if (sku) ads.push({ sku, cost, revenue });
+  });
+  return ads;
+}
+
+function runAnalysis() {
+  saveThresholds();
+  const text = document.getElementById('ads-paste').value;
+  if (!text.trim()) { toast('Paste or upload Google Ads data first', 'error'); return; }
+  if (!state.master.length) { toast('Load SKU master first', 'error'); return; }
+
+  const ads = parseAdsData(text);
+  if (!ads.length) { toast('No rows parsed — check column headers', 'error'); return; }
+
+  state.ads = ads;
+  const cut = [], hold = [], scale = [], unmatched = [];
+
+  ads.forEach(a => {
+    if (a.cost === 0 && a.revenue === 0) return;  // skip dead items
+
+    const idx = state.masterIndex[a.sku.toUpperCase()];
+    if (idx === undefined) {
+      unmatched.push({ sku: a.sku, spend: a.cost, revenue: a.revenue });
+      return;
+    }
+    const m = state.master[idx];
+    const margin = m.margin;
+    const gp = a.revenue * margin;  // FIXED: no /100
+    const wasted = Math.max(0, a.cost - gp);
+
+    let absorption = null;
+    let status;
+
+    if (a.cost > 0 && a.revenue === 0) {
+      // Spending with no revenue
+      if (a.cost < state.thresholds.minSpend) {
+        status = 'hold';  // protect new SKUs below floor
+      } else {
+        status = 'cut';
+      }
+    } else if (gp <= 0) {
+      status = 'cut';
+    } else {
+      absorption = (a.cost / gp) * 100;
+      if (absorption <= state.thresholds.scale) status = 'scale';
+      else if (absorption <= state.thresholds.hold) status = 'hold';
+      else status = 'cut';
+    }
+
+    const row = {
+      sku: a.sku, margin,
+      spend: a.cost, revenue: a.revenue, gp, absorption, wasted, status
+    };
+
+    if (status === 'cut') cut.push(row);
+    else if (status === 'hold') hold.push(row);
+    else scale.push(row);
+  });
+
+  state.results = { cut, hold, scale, unmatched };
+  const now = new Date();
+  localStorage.setItem(STORAGE_KEYS.LAST_ANALYSIS, now.toISOString());
+  document.getElementById('header-last-analysis').textContent = now.toLocaleString();
+
+  renderResults();
+  document.getElementById('analysis-results').style.display = 'block';
+  document.getElementById('analysis-results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  toast(`Analysis complete: ${cut.length} CUT · ${hold.length} HOLD · ${scale.length} SCALE`, 'success');
+}
+
+function fmt$(n) {
+  if (n == null || isNaN(n)) return '—';
+  return '$' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+function fmtPct(n) {
+  if (n == null || isNaN(n)) return '—';
+  return n.toFixed(1) + '%';
+}
+
+function renderResults() {
+  const { cut, hold, scale, unmatched } = state.results;
+
+  // Sort cut by chosen column (default $ wasted desc)
+  const { col, dir } = state.ui.resultsSort;
+  const sorter = (a, b) => {
+    let va = a[col], vb = b[col];
+    if (va == null) va = -Infinity;
+    if (vb == null) vb = -Infinity;
+    if (typeof va === 'string') { va = va.toLowerCase(); vb = vb.toLowerCase(); }
+    return dir === 'asc' ? (va > vb ? 1 : va < vb ? -1 : 0) : (va < vb ? 1 : va > vb ? -1 : 0);
+  };
+  const cutSorted = [...cut].sort(sorter);
+
+  // Stats
+  const totalSpend = [...cut, ...hold, ...scale].reduce((s, r) => s + r.spend, 0);
+  const totalRev = [...cut, ...hold, ...scale].reduce((s, r) => s + r.revenue, 0);
+  const totalGP = [...cut, ...hold, ...scale].reduce((s, r) => s + r.gp, 0);
+  const netContrib = totalGP - totalSpend;
+  const totalWasted = cut.reduce((s, r) => s + r.wasted, 0);
+
+  const stats = [
+    { label: 'Total Spend', val: fmt$(totalSpend), cls: '', tip: 'How much you paid Google Ads this period across all SKUs that had activity.' },
+    { label: 'Total Revenue', val: fmt$(totalRev), cls: '', tip: 'Total sales the ads generated. This is top-line money in — before you pay your supplier for the goods.' },
+    { label: 'Expected GP', val: fmt$(totalGP), cls: '', tip: 'Gross Profit: the money you actually keep after the cost of goods, but BEFORE paying for ads.\n\nMath: Revenue × Margin %.\n\nExample: $1,000 revenue × 25% margin = $250 GP. The other $750 went to your supplier.' },
+    { label: 'Net Contribution', val: fmt$(netContrib), cls: netContrib >= 0 ? 'green' : 'red', tip: 'The bottom line. What you actually made (or lost) from your ads.\n\nMath: Expected GP − Total Spend.\n\nGreen = ads are making you money. Red = ads are costing more than they earn.' },
+    { label: '$ Wasted (CUT)', val: fmt$(totalWasted), cls: 'red', tip: 'How much money you could save NEXT period by pausing every SKU on the CUT list right now.\n\nThis is your action number. The bigger this is, the more there is to fix.' },
+    { label: 'CUT count', val: cut.length, cls: 'red', tip: 'Number of SKUs where ad spend ate too much of the gross profit (or generated no revenue at all). These need attention first.' },
+    { label: 'HOLD count', val: hold.length, cls: 'amber', tip: 'Borderline SKUs. Profitable, but ads are eating a big chunk. Watch these next period — if they get worse, they move to CUT.' },
+    { label: 'SCALE count', val: scale.length, cls: 'green', tip: 'Winners. Ads are eating only a small share of the gross profit. These are candidates for MORE budget, not less.' }
+  ];
+  document.getElementById('summary-stats').innerHTML = stats.map((s, i) => {
+    // Always anchor below (clears the section title and any sticky header above)
+    // For right-edge cards (last column), also flip tooltip to right-aligned
+    const isRightEdge = (i + 1) % 4 === 0;
+    const tipClass = 'tip-below' + (isRightEdge ? ' tip-left' : '');
+    return `
+    <div class="stat-card">
+      <div class="label">${s.label}<span class="tip ${tipClass}" data-tip="${escapeHTML(s.tip)}" tabindex="0">?</span></div>
+      <div class="value ${s.cls}">${s.val}</div>
+    </div>
+  `;
+  }).join('');
+
+  // CUT table — apply hide-below-$X filter
+  const minWasted = state.filters.hideCutBelow || 0;
+  const cutVisible = cutSorted.filter(r => r.wasted >= minWasted);
+  const cutHidden = cutSorted.length - cutVisible.length;
+  const visibleWasted = cutVisible.reduce((s, r) => s + r.wasted, 0);
+  const hiddenWasted = cutSorted.filter(r => r.wasted < minWasted).reduce((s, r) => s + r.wasted, 0);
+
+  let cutCountText = `${cutVisible.length} shown · ${fmt$(visibleWasted)} wasted`;
+  if (cutHidden > 0) {
+    cutCountText += ` · ${cutHidden} hidden below $${minWasted} (${fmt$(hiddenWasted)})`;
+  }
+  document.getElementById('cut-count').textContent = cutCountText;
+
+  document.getElementById('cut-tbody').innerHTML = cutVisible.length === 0
+    ? `<tr><td colspan="7" style="text-align:center; color: var(--text-faint); padding: 20px;">${cutHidden > 0 ? `All ${cutHidden} CUT items are below the $${minWasted} threshold. Lower the filter to see them.` : 'No CUT items — nice work.'}</td></tr>`
+    : cutVisible.map(r => `
+      <tr>
+        <td class="sku">${escapeHTML(r.sku)}</td>
+        <td class="num">${fmt$(r.spend)}</td>
+        <td class="num">${fmt$(r.revenue)}</td>
+        <td class="num">${fmtPct(r.margin * 100)}</td>
+        <td class="num">${fmt$(r.gp)}</td>
+        <td class="num">${r.absorption == null ? '<span style="color:var(--red);">∞ (no rev)</span>' : fmtPct(r.absorption)}</td>
+        <td class="num" style="color: var(--red);">${fmt$(r.wasted)}</td>
+      </tr>
+    `).join('');
+
+  // HOLD
+  document.getElementById('hold-count').textContent = `${hold.length} items`;
+  document.getElementById('hold-tbody').innerHTML = hold.length === 0
+    ? `<tr><td colspan="6" style="text-align:center; color: var(--text-faint); padding: 20px;">No HOLD items.</td></tr>`
+    : hold.map(r => `
+      <tr>
+        <td class="sku">${escapeHTML(r.sku)}</td>
+        <td class="num">${fmt$(r.spend)}</td>
+        <td class="num">${fmt$(r.revenue)}</td>
+        <td class="num">${fmtPct(r.margin * 100)}</td>
+        <td class="num">${fmt$(r.gp)}</td>
+        <td class="num">${r.absorption == null ? '—' : fmtPct(r.absorption)}</td>
+      </tr>
+    `).join('');
+
+  // SCALE
+  document.getElementById('scale-count').textContent = `${scale.length} items`;
+  document.getElementById('scale-tbody').innerHTML = scale.length === 0
+    ? `<tr><td colspan="6" style="text-align:center; color: var(--text-faint); padding: 20px;">No SCALE items in this batch.</td></tr>`
+    : scale.map(r => `
+      <tr>
+        <td class="sku">${escapeHTML(r.sku)}</td>
+        <td class="num">${fmt$(r.spend)}</td>
+        <td class="num">${fmt$(r.revenue)}</td>
+        <td class="num">${fmtPct(r.margin * 100)}</td>
+        <td class="num">${fmt$(r.gp)}</td>
+        <td class="num" style="color: var(--green);">${fmtPct(r.absorption)}</td>
+      </tr>
+    `).join('');
+
+  // UNMATCHED
+  document.getElementById('unmatched-count').textContent = `${unmatched.length} items`;
+  document.getElementById('unmatched-tbody').innerHTML = unmatched.length === 0
+    ? `<tr><td colspan="3" style="text-align:center; color: var(--text-faint); padding: 20px;">All ad-spend SKUs matched — clean.</td></tr>`
+    : unmatched.map(r => `
+      <tr>
+        <td class="sku">${escapeHTML(r.sku)}</td>
+        <td class="num">${fmt$(r.spend)}</td>
+        <td class="num">${fmt$(r.revenue)}</td>
+      </tr>
+    `).join('');
+}
+
+function exportResults(which) {
+  const data = state.results[which] || [];
+  if (!data.length) { toast('Nothing to export', 'error'); return; }
+  const today = new Date().toISOString().slice(0, 10);
+  if (which === 'unmatched') {
+    downloadCSV(`unmatched-${today}.csv`, ['SKU', 'Spend', 'Revenue'], data.map(r => [r.sku, r.spend, r.revenue]));
+  } else {
+    downloadCSV(
+      `${which}-${today}.csv`,
+      ['SKU', 'Spend', 'Revenue', 'Margin %', 'Expected GP', 'Absorption %', '$ Wasted', 'Status'],
+      data.map(r => [
+        r.sku, r.spend, r.revenue,
+        (r.margin * 100).toFixed(2),
+        r.gp.toFixed(2),
+        r.absorption == null ? '' : r.absorption.toFixed(2),
+        r.wasted.toFixed(2),
+        r.status.toUpperCase()
+      ])
+    );
+  }
+  toast(`Exported ${data.length} rows`, 'success');
+}
+
+// ============================================================================
+// AI RECOMMENDATIONS
+// ============================================================================
+async function generateAIRecommendations() {
+  const apiKey = document.getElementById('api-key').value.trim();
+  if (!apiKey) { toast('Enter your Anthropic API key first', 'error'); return; }
+  if (!state.results.cut.length && !state.results.hold.length) {
+    toast('Run an analysis first — no data to analyze', 'error'); return;
+  }
+
+  const btn = document.getElementById('ai-generate-btn');
+  btn.disabled = true; btn.textContent = 'Analyzing...';
+  document.getElementById('ai-output-wrap').style.display = 'block';
+  document.getElementById('ai-output').textContent = 'Sending data to Claude...';
+
+  // Build a compact summary for the prompt
+  const top20Cut = [...state.results.cut].sort((a, b) => b.wasted - a.wasted).slice(0, 20);
+  const top10Scale = [...state.results.scale].sort((a, b) => a.absorption - b.absorption).slice(0, 10);
+  const totalSpend = [...state.results.cut, ...state.results.hold, ...state.results.scale].reduce((s, r) => s + r.spend, 0);
+  const totalGP = [...state.results.cut, ...state.results.hold, ...state.results.scale].reduce((s, r) => s + r.gp, 0);
+  const totalWasted = state.results.cut.reduce((s, r) => s + r.wasted, 0);
+
+  const prompt = `You are an e-commerce ad operations analyst reviewing a weekly Google Ads spend audit for a B2B distributor. The operator uses a margin-based ad absorption model: SCALE if ad spend ≤ ${state.thresholds.scale}% of expected gross profit, HOLD if ≤ ${state.thresholds.hold}%, CUT if above.
+
+WEEK SUMMARY:
+- Total ad spend: $${totalSpend.toFixed(2)}
+- Total expected gross profit from ads: $${totalGP.toFixed(2)}
+- Net contribution: $${(totalGP - totalSpend).toFixed(2)}
+- Money wasted on CUT items: $${totalWasted.toFixed(2)}
+- Counts: ${state.results.cut.length} CUT, ${state.results.hold.length} HOLD, ${state.results.scale.length} SCALE
+- Unmatched SKUs (not in master): ${state.results.unmatched.length}
+
+TOP 20 CUT ITEMS (by $ wasted):
+${top20Cut.map(r => `${r.sku} | spend $${r.spend.toFixed(2)} | rev $${r.revenue.toFixed(2)} | margin ${(r.margin*100).toFixed(1)}% | wasted $${r.wasted.toFixed(2)} | absorption ${r.absorption == null ? 'no revenue' : r.absorption.toFixed(0)+'%'}`).join('\n')}
+
+TOP 10 SCALE WINNERS:
+${top10Scale.map(r => `${r.sku} | spend $${r.spend.toFixed(2)} | rev $${r.revenue.toFixed(2)} | absorption ${r.absorption.toFixed(1)}%`).join('\n')}
+
+Provide a tight strategic analysis (no fluff, operator voice):
+1. THE BIG PICTURE — one paragraph: is this account healthy or bleeding? What's the headline number?
+2. PATTERNS IN THE CUT LIST — look at SKU prefixes, margin ranges, spend-to-revenue ratios. Is there a category-level issue? A bidding strategy issue? Are these new SKUs that need more learning time, or established losers?
+3. PRIORITY ACTIONS — top 3 specific things to do this week, ranked by dollar impact. Be concrete (e.g., "pause SKU X to save $Y/week" not "review underperformers").
+4. SCALE OPPORTUNITY — what's the upside on the winners? Should budget shift?
+5. ONE THING TO WATCH NEXT WEEK.
+
+Keep it under 400 words. No marketing speak. Talk like an operator to an operator.`;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5-20250929',
+        max_tokens: 2000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!resp.ok) {
+      const err = await resp.text();
+      throw new Error(`API error ${resp.status}: ${err.slice(0, 200)}`);
+    }
+
+    const data = await resp.json();
+    const text = data.content.filter(c => c.type === 'text').map(c => c.text).join('\n');
+    document.getElementById('ai-output').textContent = text;
+    toast('Analysis ready', 'success');
+  } catch (err) {
+    document.getElementById('ai-output').textContent = 'Error: ' + err.message + '\n\nCheck your API key, model name, and that you have credits available.';
+    toast('Analysis failed — see output', 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Generate Recommendations';
+  }
+}
+
+// ============================================================================
+// TAB SWITCHING
+// ============================================================================
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ============================================================================
+// TOAST
+// ============================================================================
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show ' + type;
+  setTimeout(() => el.classList.remove('show'), 3500);
+}
+
+// ============================================================================
+// INIT
+// ============================================================================
+function init() {
+  loadMaster();
+  loadThresholds();
+  loadFilters();
+  loadAPIKey();
+  renderMaster();
+  const lastAnalysis = localStorage.getItem(STORAGE_KEYS.LAST_ANALYSIS);
+  if (lastAnalysis) {
+    document.getElementById('header-last-analysis').textContent = new Date(lastAnalysis).toLocaleString();
+  }
+}
+init();
+</script>
+</body>
+</html>
