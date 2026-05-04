@@ -658,6 +658,7 @@ footer {
 <nav class="tabs">
   <button class="tab-btn active" data-tab="master">SKU Master</button>
   <button class="tab-btn" data-tab="ads">Google Ads Analysis</button>
+  <button class="tab-btn" data-tab="history">History</button>
   <button class="tab-btn" data-tab="ai">AI Recommendations</button>
 </nav>
 
@@ -762,6 +763,13 @@ footer {
     </div>
 
     <div id="analysis-results" style="display:none;">
+
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 16px; gap: 12px; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <button class="btn primary" onclick="saveSnapshot()">📸 Save Snapshot to History</button>
+          <span id="snapshot-status" style="color: var(--text-faint); font-size: 12px;"></span>
+        </div>
+      </div>
 
       <details style="margin-bottom: 16px;">
         <summary style="background: var(--bg-elev); border-color: var(--border-strong); color: var(--accent); font-weight: 600;">📖 How to read this report (click to expand)</summary>
@@ -884,6 +892,32 @@ footer {
 
   </section>
 
+  <!-- HISTORY TAB -->
+  <section class="tab-panel" id="tab-history">
+
+    <div class="banner info">
+      <span>📚</span>
+      <div>
+        Each snapshot is a frozen-in-time record of a weekly analysis. Save one each Monday after running fresh Google Ads data. Once you have 3+ snapshots, the system will start surfacing repeat-offender SKUs.
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <button class="btn" onclick="exportAllHistory()">Export All History (CSV)</button>
+      <div class="toolbar-spacer"></div>
+      <span id="history-count" style="color: var(--text-dim); font-size: 12px;"></span>
+      <button class="btn danger" onclick="clearAllHistory()">Clear All History</button>
+    </div>
+
+    <div id="history-empty" class="empty-state" style="display:none;">
+      <h3>No snapshots saved yet</h3>
+      <p>Run an analysis on the Google Ads Analysis tab, then click "📸 Save Snapshot to History" to start tracking trends.</p>
+    </div>
+
+    <div id="history-list"></div>
+
+  </section>
+
   <!-- AI RECOMMENDATIONS TAB -->
   <section class="tab-panel" id="tab-ai">
 
@@ -935,6 +969,24 @@ footer {
   </div>
 </div>
 
+<!-- SAVE SNAPSHOT MODAL -->
+<div class="modal-overlay" id="save-snapshot-modal">
+  <div class="modal">
+    <h2>📸 Save snapshot</h2>
+    <p style="color: var(--text-dim); font-size: 13px; margin-bottom: 14px;">Give this snapshot a label so you can recognize it in History. Default is today's date.</p>
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <div class="setting">
+        <label>Snapshot label</label>
+        <input type="text" id="new-snapshot-label" placeholder="e.g. Week of Nov 4" onkeydown="if(event.key==='Enter') confirmSaveSnapshot();">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('save-snapshot-modal')">Cancel</button>
+      <button class="btn primary" onclick="confirmSaveSnapshot()">Save</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -966,7 +1018,8 @@ const STORAGE_KEYS = {
   THRESHOLDS: 'modonix_ad_thresholds_v1',
   FILTERS: 'modonix_ad_filters_v1',
   API_KEY: 'modonix_ad_apikey_v1',
-  LAST_ANALYSIS: 'modonix_ad_last_analysis_v1'
+  LAST_ANALYSIS: 'modonix_ad_last_analysis_v1',
+  SNAPSHOTS: 'modonix_ad_snapshots_v1'
 };
 
 function saveMaster() {
@@ -1028,6 +1081,251 @@ function onFilterChange() {
   if (state.results.cut.length || state.results.hold.length || state.results.scale.length) {
     renderResults();
   }
+}
+
+// ============================================================================
+// SNAPSHOTS / HISTORY
+// ============================================================================
+function loadSnapshots() {
+  const raw = localStorage.getItem(STORAGE_KEYS.SNAPSHOTS);
+  if (!raw) return [];
+  try { return JSON.parse(raw); } catch (e) { return []; }
+}
+
+function persistSnapshots(snapshots) {
+  try {
+    localStorage.setItem(STORAGE_KEYS.SNAPSHOTS, JSON.stringify(snapshots));
+    return true;
+  } catch (e) {
+    toast('Storage full — export & clear old snapshots', 'error');
+    return false;
+  }
+}
+
+function saveSnapshot() {
+  const r = state.results;
+  if (!r || (!r.cut.length && !r.hold.length && !r.scale.length)) {
+    toast('Run an analysis first — nothing to save', 'error');
+    return;
+  }
+  // Pre-fill default label and open the modal
+  const now = new Date();
+  const defaultLabel = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  const input = document.getElementById('new-snapshot-label');
+  input.value = defaultLabel;
+  document.getElementById('save-snapshot-modal').classList.add('show');
+  setTimeout(() => { input.focus(); input.select(); }, 50);
+}
+
+function confirmSaveSnapshot() {
+  const r = state.results;
+  if (!r || (!r.cut.length && !r.hold.length && !r.scale.length)) {
+    toast('Run an analysis first — nothing to save', 'error');
+    closeModal('save-snapshot-modal');
+    return;
+  }
+
+  const now = new Date();
+  const labelInput = document.getElementById('new-snapshot-label').value.trim();
+  const dateLabel = labelInput || now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+  // Build the snapshot
+  const bucketSpend = [...r.cut, ...r.hold, ...r.scale].reduce((s, x) => s + x.spend, 0);
+  const bucketRev = [...r.cut, ...r.hold, ...r.scale].reduce((s, x) => s + x.revenue, 0);
+  const bucketGP = [...r.cut, ...r.hold, ...r.scale].reduce((s, x) => s + x.gp, 0);
+  const totalSpend = bucketSpend + (r.excludedSpend || 0) + (r.unmatchedSpend || 0);
+  const totalRev = bucketRev + (r.unmatchedRevenue || 0);
+  const totalWasted = r.cut.reduce((s, x) => s + x.wasted, 0);
+
+  const snapshot = {
+    id: 'snap_' + now.getTime(),
+    label: dateLabel,
+    timestamp: now.toISOString(),
+    summary: {
+      totalSpend, totalRev, totalGP: bucketGP,
+      netContrib: bucketGP - totalSpend,
+      totalWasted,
+      cutCount: r.cut.length,
+      holdCount: r.hold.length,
+      scaleCount: r.scale.length,
+      unmatchedCount: r.unmatched.length,
+      excludedCount: r.excludedCount || 0
+    },
+    thresholds: { ...state.thresholds },
+    cut: r.cut.map(x => ({ ...x })),
+    hold: r.hold.map(x => ({ ...x })),
+    scale: r.scale.map(x => ({ ...x }))
+  };
+
+  const snapshots = loadSnapshots();
+  snapshots.unshift(snapshot);
+
+  if (persistSnapshots(snapshots)) {
+    document.getElementById('snapshot-status').innerHTML =
+      `✓ Saved as <strong style="color: var(--accent);">${escapeHTML(snapshot.label)}</strong> · <a href="#" onclick="event.preventDefault(); document.querySelector('[data-tab=history]').click();" style="color: var(--accent); text-decoration: underline;">View history →</a>`;
+    toast(`Snapshot saved: ${snapshot.label}`, 'success');
+    renderHistory();
+    closeModal('save-snapshot-modal');
+  }
+}
+
+function deleteSnapshot(id) {
+  const snapshots = loadSnapshots();
+  const snap = snapshots.find(s => s.id === id);
+  if (!snap) return;
+  if (!confirm(`Delete snapshot "${snap.label}"? This cannot be undone.`)) return;
+  const filtered = snapshots.filter(s => s.id !== id);
+  persistSnapshots(filtered);
+  renderHistory();
+  toast('Snapshot deleted', 'success');
+}
+
+function clearAllHistory() {
+  const snapshots = loadSnapshots();
+  if (!snapshots.length) { toast('Nothing to clear', 'error'); return; }
+  if (!confirm(`Delete ALL ${snapshots.length} snapshots? This cannot be undone.`)) return;
+  localStorage.removeItem(STORAGE_KEYS.SNAPSHOTS);
+  renderHistory();
+  toast('All history cleared', 'success');
+}
+
+function exportAllHistory() {
+  const snapshots = loadSnapshots();
+  if (!snapshots.length) { toast('Nothing to export', 'error'); return; }
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Flatten: one row per SKU per snapshot
+  const headers = ['Snapshot Label', 'Snapshot Date', 'Status', 'SKU', 'Spend', 'Revenue', 'Margin %', 'Expected GP', 'Absorption %', '$ Wasted'];
+  const rows = [];
+  snapshots.forEach(snap => {
+    ['cut', 'hold', 'scale'].forEach(bucket => {
+      (snap[bucket] || []).forEach(r => {
+        rows.push([
+          snap.label,
+          snap.timestamp.slice(0, 10),
+          bucket.toUpperCase(),
+          r.sku,
+          r.spend,
+          r.revenue,
+          (r.margin * 100).toFixed(2),
+          r.gp.toFixed(2),
+          r.absorption == null ? '' : r.absorption.toFixed(2),
+          r.wasted.toFixed(2)
+        ]);
+      });
+    });
+  });
+  downloadCSV(`history-all-${today}.csv`, headers, rows);
+  toast(`Exported ${rows.length} rows from ${snapshots.length} snapshots`, 'success');
+}
+
+function exportSnapshot(id) {
+  const snap = loadSnapshots().find(s => s.id === id);
+  if (!snap) return;
+  const dateSafe = snap.label.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+  const headers = ['Status', 'SKU', 'Spend', 'Revenue', 'Margin %', 'Expected GP', 'Absorption %', '$ Wasted'];
+  const rows = [];
+  ['cut', 'hold', 'scale'].forEach(bucket => {
+    (snap[bucket] || []).forEach(r => {
+      rows.push([
+        bucket.toUpperCase(), r.sku, r.spend, r.revenue,
+        (r.margin * 100).toFixed(2),
+        r.gp.toFixed(2),
+        r.absorption == null ? '' : r.absorption.toFixed(2),
+        r.wasted.toFixed(2)
+      ]);
+    });
+  });
+  downloadCSV(`snapshot-${dateSafe}.csv`, headers, rows);
+}
+
+function renderHistory() {
+  const snapshots = loadSnapshots();
+  const empty = document.getElementById('history-empty');
+  const list = document.getElementById('history-list');
+  const countEl = document.getElementById('history-count');
+
+  countEl.textContent = snapshots.length === 0 ? '' : `${snapshots.length} snapshot${snapshots.length === 1 ? '' : 's'} saved`;
+
+  if (!snapshots.length) {
+    empty.style.display = 'block';
+    list.innerHTML = '';
+    return;
+  }
+  empty.style.display = 'none';
+
+  list.innerHTML = snapshots.map(snap => {
+    const s = snap.summary;
+    const date = new Date(snap.timestamp).toLocaleString();
+    const netClass = s.netContrib >= 0 ? 'green' : 'red';
+    const cutSorted = [...(snap.cut || [])].sort((a, b) => b.wasted - a.wasted);
+
+    const cutRows = cutSorted.map(r => `
+      <tr>
+        <td class="sku">${escapeHTML(r.sku)}</td>
+        <td class="num">${fmt$(r.spend)}</td>
+        <td class="num">${fmt$(r.revenue)}</td>
+        <td class="num">${fmtPct(r.margin * 100)}</td>
+        <td class="num">${fmt$(r.gp)}</td>
+        <td class="num">${r.absorption == null ? '<span style="color:var(--red);">∞</span>' : fmtPct(r.absorption)}</td>
+        <td class="num" style="color: var(--red);">${fmt$(r.wasted)}</td>
+      </tr>
+    `).join('');
+
+    return `
+      <details style="margin-bottom: 8px;">
+        <summary style="background: var(--bg-elev); border: 1px solid var(--border); border-radius: 4px; padding: 12px 16px; display: flex; align-items: center; gap: 16px; cursor: pointer; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; color: var(--text); text-transform: none; letter-spacing: normal;">
+          <span style="font-weight: 600; color: var(--accent); min-width: 140px;">${escapeHTML(snap.label)}</span>
+          <span class="mono" style="color: var(--text-faint); font-size: 11px;">${date}</span>
+          <span style="margin-left: auto; display: flex; gap: 16px; font-family: 'IBM Plex Mono', monospace; font-size: 12px;">
+            <span><span style="color: var(--text-faint);">CUT</span> <span style="color: var(--red); font-weight: 600;">${s.cutCount}</span></span>
+            <span><span style="color: var(--text-faint);">HOLD</span> <span style="color: var(--amber); font-weight: 600;">${s.holdCount}</span></span>
+            <span><span style="color: var(--text-faint);">SCALE</span> <span style="color: var(--green); font-weight: 600;">${s.scaleCount}</span></span>
+            <span><span style="color: var(--text-faint);">WASTED</span> <span style="color: var(--red); font-weight: 600;">${fmt$(s.totalWasted)}</span></span>
+            <span><span style="color: var(--text-faint);">NET</span> <span style="color: var(--${netClass}); font-weight: 600;">${fmt$(s.netContrib)}</span></span>
+          </span>
+        </summary>
+
+        <div style="background: var(--bg-elev); border: 1px solid var(--border); border-top: none; border-radius: 0 0 4px 4px; padding: 16px;">
+
+          <div class="stat-grid" style="margin-bottom: 14px;">
+            <div class="stat-card"><div class="label">Total Spend</div><div class="value">${fmt$(s.totalSpend)}</div></div>
+            <div class="stat-card"><div class="label">Total Revenue</div><div class="value">${fmt$(s.totalRev)}</div></div>
+            <div class="stat-card"><div class="label">Expected GP</div><div class="value">${fmt$(s.totalGP)}</div></div>
+            <div class="stat-card"><div class="label">Net Contribution</div><div class="value ${netClass}">${fmt$(s.netContrib)}</div></div>
+          </div>
+
+          <div style="display: flex; gap: 8px; margin-bottom: 14px;">
+            <button class="btn small" onclick="exportSnapshot('${snap.id}')">Export this snapshot CSV</button>
+            <button class="btn small danger" onclick="deleteSnapshot('${snap.id}')">Delete snapshot</button>
+            <span style="margin-left: auto; color: var(--text-faint); font-size: 11px; align-self: center;">
+              Thresholds: SCALE ≤${snap.thresholds.scale}% · HOLD ≤${snap.thresholds.hold}% · Floor $${snap.thresholds.minSpend}
+            </span>
+          </div>
+
+          ${cutRows ? `
+          <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--red); margin-bottom: 8px; font-weight: 600;">🔴 CUT items (${cutSorted.length})</div>
+          <div class="table-scroll" style="max-height: 320px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>SKU</th>
+                  <th class="num">Spend</th>
+                  <th class="num">Revenue</th>
+                  <th class="num">Margin</th>
+                  <th class="num">Exp. GP</th>
+                  <th class="num">Absorption</th>
+                  <th class="num">$ Wasted</th>
+                </tr>
+              </thead>
+              <tbody>${cutRows}</tbody>
+            </table>
+          </div>
+          ` : '<div style="color: var(--text-faint); font-style: italic;">No CUT items in this snapshot.</div>'}
+        </div>
+      </details>
+    `;
+  }).join('');
 }
 
 // ============================================================================
@@ -1404,6 +1702,8 @@ function runAnalysis() {
 
   renderResults();
   document.getElementById('analysis-results').style.display = 'block';
+  const statusEl = document.getElementById('snapshot-status');
+  if (statusEl) statusEl.textContent = '';
   document.getElementById('analysis-results').scrollIntoView({ behavior: 'smooth', block: 'start' });
   toast(`Analysis complete: ${cut.length} CUT · ${hold.length} HOLD · ${scale.length} SCALE`, 'success');
 }
@@ -1587,34 +1887,115 @@ async function generateAIRecommendations() {
   // Build a compact summary for the prompt
   const top20Cut = [...state.results.cut].sort((a, b) => b.wasted - a.wasted).slice(0, 20);
   const top10Scale = [...state.results.scale].sort((a, b) => a.absorption - b.absorption).slice(0, 10);
-  const totalSpend = [...state.results.cut, ...state.results.hold, ...state.results.scale].reduce((s, r) => s + r.spend, 0);
-  const totalGP = [...state.results.cut, ...state.results.hold, ...state.results.scale].reduce((s, r) => s + r.gp, 0);
+
+  const bucketSpend = [...state.results.cut, ...state.results.hold, ...state.results.scale].reduce((s, r) => s + r.spend, 0);
+  const bucketRev = [...state.results.cut, ...state.results.hold, ...state.results.scale].reduce((s, r) => s + r.revenue, 0);
+  const bucketGP = [...state.results.cut, ...state.results.hold, ...state.results.scale].reduce((s, r) => s + r.gp, 0);
+  const excludedSpend = state.results.excludedSpend || 0;
+  const excludedCount = state.results.excludedCount || 0;
+  const unmatchedSpend = state.results.unmatchedSpend || 0;
+  const unmatchedRevenue = state.results.unmatchedRevenue || 0;
+  const totalSpend = bucketSpend + excludedSpend + unmatchedSpend;
+  const totalRev = bucketRev + unmatchedRevenue;
+  const totalGP = bucketGP;
+  const netContrib = totalGP - totalSpend;
   const totalWasted = state.results.cut.reduce((s, r) => s + r.wasted, 0);
 
-  const prompt = `You are an e-commerce ad operations analyst reviewing a weekly Google Ads spend audit for a B2B distributor. The operator uses a margin-based ad absorption model: SCALE if ad spend ≤ ${state.thresholds.scale}% of expected gross profit, HOLD if ≤ ${state.thresholds.hold}%, CUT if above.
+  // Categorize cut items by failure pattern so the prompt can give targeted checklists
+  const zeroRevCut = top20Cut.filter(r => r.revenue === 0);
+  const lowMarginCut = top20Cut.filter(r => r.revenue > 0 && r.absorption != null && r.absorption > 100);
+  const borderlineCut = top20Cut.filter(r => r.revenue > 0 && r.absorption != null && r.absorption <= 100);
 
-WEEK SUMMARY:
-- Total ad spend: $${totalSpend.toFixed(2)}
-- Total expected gross profit from ads: $${totalGP.toFixed(2)}
-- Net contribution: $${(totalGP - totalSpend).toFixed(2)}
-- Money wasted on CUT items: $${totalWasted.toFixed(2)}
-- Counts: ${state.results.cut.length} CUT, ${state.results.hold.length} HOLD, ${state.results.scale.length} SCALE
-- Unmatched SKUs (not in master): ${state.results.unmatched.length}
+  const prompt = `You are an experienced e-commerce ad operations consultant reviewing a Google Ads spend audit for a B2B distributor. The operator runs Performance Max campaigns and uses a margin-based ad absorption model: SCALE if ad spend ≤ ${state.thresholds.scale}% of expected gross profit, HOLD if ≤ ${state.thresholds.hold}%, CUT if above.
 
-TOP 20 CUT ITEMS (by $ wasted):
-${top20Cut.map(r => `${r.sku} | spend $${r.spend.toFixed(2)} | rev $${r.revenue.toFixed(2)} | margin ${(r.margin*100).toFixed(1)}% | wasted $${r.wasted.toFixed(2)} | absorption ${r.absorption == null ? 'no revenue' : r.absorption.toFixed(0)+'%'}`).join('\n')}
+CRITICAL CONTEXT — READ THIS BEFORE WRITING:
+You only have the data shown below. You CANNOT see the operator's storefront, competitor prices, search terms reports, inventory, or product listings. Your job is NOT to give generic advice ("review underperformers", "optimize bidding"). Your job is to act like a smart consultant who tells the operator EXACTLY where to investigate, because the data here is incomplete by design. Be specific. Reference SKU IDs. Direct them to specific places to look (Grainger, Amazon, Google Ads search terms, their own product pages). Never invent data you don't have.
 
-TOP 10 SCALE WINNERS:
-${top10Scale.map(r => `${r.sku} | spend $${r.spend.toFixed(2)} | rev $${r.revenue.toFixed(2)} | absorption ${r.absorption.toFixed(1)}%`).join('\n')}
+ACCOUNT NUMBERS (THIS PERIOD):
+- Total spend (Google Ads charged): $${totalSpend.toFixed(2)}
+- Total revenue from ads: $${totalRev.toFixed(2)}
+- Expected gross profit (matched SKUs only): $${totalGP.toFixed(2)}
+- Net contribution: $${netContrib.toFixed(2)} ${netContrib >= 0 ? '(positive — ads net profitable)' : '(NEGATIVE — losing money on ads)'}
+- Total $ wasted on CUT items: $${totalWasted.toFixed(2)}
+- Counts: ${state.results.cut.length} CUT · ${state.results.hold.length} HOLD · ${state.results.scale.length} SCALE
+- Excluded micro-spend (zero rev, below $${state.thresholds.minSpend}): $${excludedSpend.toFixed(2)} across ${excludedCount} SKUs
+- SKUs running ads not in master file: ${state.results.unmatched.length} (${fmt$(unmatchedSpend)} spend)
 
-Provide a tight strategic analysis (no fluff, operator voice):
-1. THE BIG PICTURE — one paragraph: is this account healthy or bleeding? What's the headline number?
-2. PATTERNS IN THE CUT LIST — look at SKU prefixes, margin ranges, spend-to-revenue ratios. Is there a category-level issue? A bidding strategy issue? Are these new SKUs that need more learning time, or established losers?
-3. PRIORITY ACTIONS — top 3 specific things to do this week, ranked by dollar impact. Be concrete (e.g., "pause SKU X to save $Y/week" not "review underperformers").
-4. SCALE OPPORTUNITY — what's the upside on the winners? Should budget shift?
-5. ONE THING TO WATCH NEXT WEEK.
+CUT ITEMS BY FAILURE PATTERN:
 
-Keep it under 400 words. No marketing speak. Talk like an operator to an operator.`;
+PATTERN 1 — Zero revenue (spent but didn't sell at all): ${zeroRevCut.length} items
+${zeroRevCut.slice(0, 10).map(r => `  ${r.sku} — spent $${r.spend.toFixed(2)} | margin ${(r.margin*100).toFixed(1)}%`).join('\n') || '  (none)'}
+
+PATTERN 2 — Sold but ads cost MORE than profit (>100% absorption): ${lowMarginCut.length} items
+${lowMarginCut.slice(0, 10).map(r => `  ${r.sku} — spent $${r.spend.toFixed(2)} rev $${r.revenue.toFixed(2)} margin ${(r.margin*100).toFixed(1)}% absorption ${r.absorption.toFixed(0)}% wasted $${r.wasted.toFixed(2)}`).join('\n') || '  (none)'}
+
+PATTERN 3 — Borderline (sold, profitable, but eating too much GP): ${borderlineCut.length} items
+${borderlineCut.slice(0, 5).map(r => `  ${r.sku} — spent $${r.spend.toFixed(2)} rev $${r.revenue.toFixed(2)} absorption ${r.absorption.toFixed(0)}%`).join('\n') || '  (none)'}
+
+TOP SCALE WINNERS:
+${top10Scale.map(r => `  ${r.sku} — spent $${r.spend.toFixed(2)} rev $${r.revenue.toFixed(2)} absorption ${r.absorption.toFixed(1)}%`).join('\n')}
+
+WRITE THE REPORT IN THIS EXACT STRUCTURE:
+
+═══════════════════════════════════════
+1. THE BIG PICTURE
+═══════════════════════════════════════
+Two or three sentences MAX. State the headline: is the account net profitable or bleeding? What's the single most important number to know? If net contribution is negative, say so plainly. If a huge % of spend is going to unmatched SKUs, flag it. No fluff.
+
+═══════════════════════════════════════
+2. PATTERNS IN THE CUT LIST
+═══════════════════════════════════════
+Look at the SKU prefixes (the letters before numbers — e.g., "dwsdpg", "wri", "jhw", "bah", "mcr"). These are brand/supplier codes. Are losses concentrated in one or two prefixes? If yes, name them and call it out as a supplier-level or category-level problem, not just a SKU-level one. Also note: are the CUT items mostly Pattern 1 (zero rev) or Pattern 2 (overspending on items that DO sell)? These mean different things — Pattern 1 is "shouldn't be advertised at all," Pattern 2 is "advertised wrong."
+
+═══════════════════════════════════════
+3. INVESTIGATION CHECKLIST — TOP 3 BIGGEST LEAKS
+═══════════════════════════════════════
+Pick the 3 SKUs from the CUT list with the highest $ wasted. For EACH one, write a checklist in this format:
+
+▸ SKU: [sku id] — [one-line summary of the failure: e.g., "spent $X, returned $0 over the period"]
+
+  Before pausing, investigate in this order:
+
+  ☐ [Specific check #1 — name the website or place to look]
+  ☐ [Specific check #2 — name the data source]
+  ☐ [Specific check #3 — name the report/page]
+  ☐ [Decision rule: if all checks pass, what to do]
+
+The checks must be specific and actionable. For Performance Max accounts, useful checks include:
+- Price comparison: open Grainger, Amazon Business, Zoro — search the SKU — within 5% of lowest?
+- Listing health: open the product page on the storefront — does it have ≥4 images, complete specs, in-stock status?
+- Stock & lead time: actually in stock? Page says "ships today" or "2-3 weeks"?
+- Search terms insights: Google Ads → Reports → Insights → Search Categories — what queries triggered impressions?
+- Asset group placement: is this SKU in the same PMax asset group as winners? If yes, separating it lets you starve it of budget without affecting winners.
+- Listing groups: is this part of a listing group that should be excluded from the feed entirely?
+- Competing internal SKU: do you have a similar/cheaper SKU on your own site that buyers are switching to?
+
+Vary the checks based on the failure pattern — Pattern 1 (zero rev) vs Pattern 2 (overspending) need different first questions. Don't repeat the same checklist for all three SKUs.
+
+═══════════════════════════════════════
+4. THE OPERATOR'S PAUSE-TEST CYCLE
+═══════════════════════════════════════
+This operator's protocol: pause CUT items for 2 weeks, turn back on for 1 week, if it lands in CUT again → permanent kill. Apply that to your top 3 SKUs above. For each one, recommend one of:
+- "Pause now — investigate during pause" (if checklist hasn't been done before)
+- "Permanent kill" (if this is clearly hopeless from the data alone)
+- "Don't pause — fix the listing/price first, then re-evaluate next period"
+
+═══════════════════════════════════════
+5. SCALE OPPORTUNITY
+═══════════════════════════════════════
+Look at the top SCALE winners. Two sentences max: which SKUs deserve more budget, and what's the rough upside? If the same SKU prefix appears in both SCALE and CUT, that's an interesting signal — call it out.
+
+═══════════════════════════════════════
+6. WATCH NEXT PERIOD
+═══════════════════════════════════════
+One concrete thing to monitor on the next run. Be specific.
+
+RULES:
+- No marketing speak. Talk like an operator briefing another operator.
+- Reference real SKU IDs from the data above. Never invent SKUs.
+- Use the actual dollar figures from above. Do not estimate or round dramatically.
+- If something requires data you don't have, SAY SO and tell the operator where to find it. Don't guess.
+- Total length: aim for 400-500 words. Tight, scannable, no padding.`;
 
   try {
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
@@ -1680,6 +2061,7 @@ function init() {
   loadFilters();
   loadAPIKey();
   renderMaster();
+  renderHistory();
   const lastAnalysis = localStorage.getItem(STORAGE_KEYS.LAST_ANALYSIS);
   if (lastAnalysis) {
     document.getElementById('header-last-analysis').textContent = new Date(lastAnalysis).toLocaleString();
