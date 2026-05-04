@@ -749,9 +749,9 @@ footer {
             <span class="hint">auto = HOLD threshold</span>
           </div>
           <div class="setting">
-            <label>Min spend before auto-CUT</label>
+            <label>Ignore zero-revenue items below $</label>
             <input type="number" id="min-spend" value="25" min="0" step="1">
-            <span class="hint">$ — protects new SKUs</span>
+            <span class="hint">$ — too little spend to judge</span>
           </div>
         </div>
       </div>
@@ -1345,30 +1345,38 @@ function runAnalysis() {
 
   state.ads = ads;
   const cut = [], hold = [], scale = [], unmatched = [];
+  let excludedSpend = 0;       // micro-spend items below the floor (kept out of buckets, but spend still counts)
+  let excludedCount = 0;
+  let unmatchedSpend = 0;      // spend on SKUs not in master
+  let unmatchedRevenue = 0;
 
   ads.forEach(a => {
-    if (a.cost === 0 && a.revenue === 0) return;  // skip dead items
+    if (a.cost === 0 && a.revenue === 0) return;  // truly dead — ignore
 
     const idx = state.masterIndex[a.sku.toUpperCase()];
     if (idx === undefined) {
       unmatched.push({ sku: a.sku, spend: a.cost, revenue: a.revenue });
+      unmatchedSpend += a.cost;
+      unmatchedRevenue += a.revenue;
       return;
     }
     const m = state.master[idx];
     const margin = m.margin;
-    const gp = a.revenue * margin;  // FIXED: no /100
+    const gp = a.revenue * margin;
     const wasted = Math.max(0, a.cost - gp);
 
     let absorption = null;
     let status;
 
     if (a.cost > 0 && a.revenue === 0) {
-      // Spending with no revenue
       if (a.cost < state.thresholds.minSpend) {
-        status = 'hold';  // protect new SKUs below floor
-      } else {
-        status = 'cut';
+        // Below the floor — keep out of CUT/HOLD/SCALE (avoids 1000s of noise rows),
+        // but still count the spend in totals so summary numbers stay honest.
+        excludedSpend += a.cost;
+        excludedCount += 1;
+        return;
       }
+      status = 'cut';
     } else if (gp <= 0) {
       status = 'cut';
     } else {
@@ -1388,7 +1396,8 @@ function runAnalysis() {
     else scale.push(row);
   });
 
-  state.results = { cut, hold, scale, unmatched };
+  state.results = { cut, hold, scale, unmatched, excludedSpend, excludedCount, unmatchedSpend, unmatchedRevenue };
+
   const now = new Date();
   localStorage.setItem(STORAGE_KEYS.LAST_ANALYSIS, now.toISOString());
   document.getElementById('header-last-analysis').textContent = now.toLocaleString();
@@ -1422,21 +1431,36 @@ function renderResults() {
   };
   const cutSorted = [...cut].sort(sorter);
 
-  // Stats
-  const totalSpend = [...cut, ...hold, ...scale].reduce((s, r) => s + r.spend, 0);
-  const totalRev = [...cut, ...hold, ...scale].reduce((s, r) => s + r.revenue, 0);
-  const totalGP = [...cut, ...hold, ...scale].reduce((s, r) => s + r.gp, 0);
+  // Stats — Total Spend must match what Google Ads actually charged you, so include
+  // unmatched-SKU spend AND the micro-spend items we excluded from the buckets.
+  const bucketSpend = [...cut, ...hold, ...scale].reduce((s, r) => s + r.spend, 0);
+  const bucketRev = [...cut, ...hold, ...scale].reduce((s, r) => s + r.revenue, 0);
+  const bucketGP = [...cut, ...hold, ...scale].reduce((s, r) => s + r.gp, 0);
+
+  const excludedSpend = state.results.excludedSpend || 0;
+  const excludedCount = state.results.excludedCount || 0;
+  const unmatchedSpend = state.results.unmatchedSpend || 0;
+  const unmatchedRevenue = state.results.unmatchedRevenue || 0;
+
+  const totalSpend = bucketSpend + excludedSpend + unmatchedSpend;
+  const totalRev = bucketRev + unmatchedRevenue;
+  const totalGP = bucketGP;  // can only calculate GP for matched SKUs (need margin)
   const netContrib = totalGP - totalSpend;
   const totalWasted = cut.reduce((s, r) => s + r.wasted, 0);
 
+  // Build a tooltip note explaining what's NOT in the buckets but IS in the totals
+  const excludedNote = (excludedCount > 0 || unmatched.length > 0)
+    ? `\n\nIncludes $${excludedSpend.toFixed(2)} from ${excludedCount} micro-spend items (zero rev, below $${state.thresholds.minSpend} floor) and $${unmatchedSpend.toFixed(2)} from ${unmatched.length} SKUs not in your master.`
+    : '';
+
   const stats = [
-    { label: 'Total Spend', val: fmt$(totalSpend), cls: '', tip: 'How much you paid Google Ads this period across all SKUs that had activity.' },
-    { label: 'Total Revenue', val: fmt$(totalRev), cls: '', tip: 'Total sales the ads generated. This is top-line money in — before you pay your supplier for the goods.' },
-    { label: 'Expected GP', val: fmt$(totalGP), cls: '', tip: 'Gross Profit: the money you actually keep after the cost of goods, but BEFORE paying for ads.\n\nMath: Revenue × Margin %.\n\nExample: $1,000 revenue × 25% margin = $250 GP. The other $750 went to your supplier.' },
+    { label: 'Total Spend', val: fmt$(totalSpend), cls: '', tip: 'Every dollar Google Ads charged you this period — including dead SKUs and SKUs not in your master.' + excludedNote },
+    { label: 'Total Revenue', val: fmt$(totalRev), cls: '', tip: 'Total sales the ads generated. Top-line money in — before you pay your supplier for the goods.' },
+    { label: 'Expected GP', val: fmt$(totalGP), cls: '', tip: 'Gross Profit: the money you actually keep after the cost of goods, but BEFORE paying for ads.\n\nMath: Revenue × Margin %.\n\nOnly counts SKUs in your master (we need margin to calculate GP).' },
     { label: 'Net Contribution', val: fmt$(netContrib), cls: netContrib >= 0 ? 'green' : 'red', tip: 'The bottom line. What you actually made (or lost) from your ads.\n\nMath: Expected GP − Total Spend.\n\nGreen = ads are making you money. Red = ads are costing more than they earn.' },
     { label: '$ Wasted (CUT)', val: fmt$(totalWasted), cls: 'red', tip: 'How much money you could save NEXT period by pausing every SKU on the CUT list right now.\n\nThis is your action number. The bigger this is, the more there is to fix.' },
     { label: 'CUT count', val: cut.length, cls: 'red', tip: 'Number of SKUs where ad spend ate too much of the gross profit (or generated no revenue at all). These need attention first.' },
-    { label: 'HOLD count', val: hold.length, cls: 'amber', tip: 'Borderline SKUs. Profitable, but ads are eating a big chunk. Watch these next period — if they get worse, they move to CUT.' },
+    { label: 'HOLD count', val: hold.length, cls: 'amber', tip: 'Borderline SKUs with real revenue but tight margins after ad spend. Watch these next period.' },
     { label: 'SCALE count', val: scale.length, cls: 'green', tip: 'Winners. Ads are eating only a small share of the gross profit. These are candidates for MORE budget, not less.' }
   ];
   document.getElementById('summary-stats').innerHTML = stats.map((s, i) => {
