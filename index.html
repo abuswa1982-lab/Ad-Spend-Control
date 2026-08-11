@@ -754,7 +754,7 @@ footer {
   <div class="brand">
     <div class="brand-mark">M</div>
     <span class="brand-text">Ad Spend Control</span>
-    <span class="brand-sub">Modonix · v1.5</span>
+    <span class="brand-sub">Modonix · v1.6</span>
   </div>
   <div class="header-right">
     <button class="btn-bk btn-bk-export" onclick="exportBackup()" title="Download backup JSON of master + snapshots + thresholds">⬇ Backup</button>
@@ -782,17 +782,26 @@ footer {
   <!-- SKU MASTER TAB -->
   <section class="tab-panel active" id="tab-master">
 
+    <div class="sheetbar">
+      <label class="sheetlabel">Live Google Sheet — SKU Master</label>
+      <div class="sheetrow">
+        <button class="btn primary" onclick="loadSkuMasterFromSheet()">⟳ Refresh from Sheet</button>
+        <span id="master-sheet-status" style="font-size: 12px; color: var(--text-dim);"></span>
+      </div>
+      <div class="sheetnote">Reads the "SKU Master" tab in the same sheet Product Weekly uses. Loads automatically when you open this page. To change a margin or add a SKU, edit it directly in that sheet — no import, no push, no pull, it's just always current here.</div>
+    </div>
+
     <div id="master-empty" class="empty-state" style="display:none;">
       <h3>No SKU master loaded</h3>
-      <p>Upload <code>skus-seed.csv</code> to get started, or import your own SKU + margin file.</p>
+      <p>Add a "SKU Master" tab to your sheet with SKU and Margin columns, or import your own CSV below.</p>
       <button class="btn primary" onclick="document.getElementById('master-import').click()">Import CSV</button>
     </div>
 
     <div id="master-loaded" style="display:none;">
       <div class="toolbar">
-        <button class="btn" onclick="document.getElementById('master-import').click()">Import CSV</button>
+        <button class="btn" onclick="document.getElementById('master-import').click()">Import CSV (local, one-off)</button>
         <button class="btn" onclick="exportMaster()">Export CSV</button>
-        <button class="btn" onclick="openAddSKU()">+ Add SKU</button>
+        <button class="btn" onclick="openAddSKU()">+ Add SKU (local, one-off)</button>
         <input type="file" id="master-import" style="display:none;" accept=".csv,.txt" onchange="importMaster(event)">
         <div class="toolbar-spacer"></div>
         <input type="text" class="search mono" id="master-search" placeholder="Search SKU..." oninput="renderMasterTable()">
@@ -1195,9 +1204,10 @@ const CLOUD_KEY = 'modonix_ad_cloud_sync_v1';
 const BACKUP_META_KEY = 'modonix_ad_backup_meta_v1';
 const BACKUP_REMINDER_DAYS = 7;
 
-// Keys included in backups. API_KEY is explicitly excluded for security.
+// Keys included in backups and cloud sync. API_KEY is excluded for security.
+// MASTER is intentionally excluded — SKU Master now lives in the Google Sheet,
+// not the browser, so there's nothing about it to back up or sync here.
 const BACKUP_KEYS = [
-  STORAGE_KEYS.MASTER,
   STORAGE_KEYS.THRESHOLDS,
   STORAGE_KEYS.FILTERS,
   STORAGE_KEYS.LAST_ANALYSIS,
@@ -1335,6 +1345,72 @@ function loadFromSheet() {
             '&sheet=' + encodeURIComponent('Product Weekly') + '&headers=1';
   document.body.appendChild(tag);
   setTimeout(() => fin(false, 'Timed out reaching the sheet — check the link and your connection'), 10000);
+}
+
+// --- SKU Master: same technique, reads the "SKU Master" tab in the same sheet.
+// This is the primary way margins get into the tool now — it's never written
+// to localStorage, so there's no browser storage ceiling to hit no matter how
+// many SKUs you have. Edit the sheet, refresh here, done.
+function setMasterSheetStatus(msg) {
+  const el = document.getElementById('master-sheet-status');
+  if (el) el.textContent = msg;
+}
+
+function loadSkuMasterFromSheet(silent) {
+  const raw = (localStorage.getItem(STORAGE_KEYS.SHEET_URL) || (document.getElementById('sheet-url') || {}).value || '').trim();
+  if (!raw) {
+    if (!silent) toast('Set the Google Sheet link on the Google Ads Analysis tab first', 'error');
+    return;
+  }
+  const id = extractSheetId(raw);
+  if (!id) {
+    if (!silent) toast('Could not read a sheet ID from that link', 'error');
+    return;
+  }
+
+  setMasterSheetStatus('Loading…');
+  const name = 'modonixSkuSheet_' + Date.now();
+  let done = false;
+  const tag = document.createElement('script');
+  const cleanup = () => { try { delete window[name]; } catch (e) { window[name] = undefined; } if (tag.parentNode) tag.parentNode.removeChild(tag); };
+  const fin = (ok, msg) => {
+    if (done) return; done = true; cleanup();
+    if (!ok) setMasterSheetStatus(msg || 'Could not reach the "SKU Master" tab');
+  };
+  window[name] = function (resp) {
+    const rows = rowsFromGviz(resp);
+    if (!rows || rows.length < 2) { fin(false, '"SKU Master" tab looks empty — add SKU and Margin columns'); return; }
+
+    const header = rows[0].map(h => String(h).toLowerCase().trim());
+    const skuCol = header.findIndex(h => h === 'sku' || h.includes('item'));
+    const marginCol = header.findIndex(h => h.includes('margin'));
+    if (skuCol < 0 || marginCol < 0) { fin(false, 'Need a "SKU" column and a "Margin" column in that tab'); return; }
+
+    const newMaster = [];
+    for (let i = 1; i < rows.length; i++) {
+      const sku = String(rows[i][skuCol] || '').trim();
+      if (!sku) continue;
+      let margin = parseFloat(rows[i][marginCol]);
+      if (isNaN(margin)) continue;
+      if (margin > 1) margin = margin / 100;
+      if (margin < 0 || margin > 1) continue;
+      newMaster.push({ sku, margin: Math.round(margin * 1000000) / 1000000 });
+    }
+
+    if (!newMaster.length) { fin(false, 'No usable SKU + Margin rows found'); return; }
+
+    state.master = newMaster;
+    rebuildIndex();
+    renderMaster();
+    setMasterSheetStatus('Loaded ' + newMaster.length.toLocaleString() + ' SKUs · ' + new Date().toLocaleTimeString());
+    if (!silent) toast('Loaded ' + newMaster.length.toLocaleString() + ' SKUs from the sheet', 'success');
+    fin(true);
+  };
+  tag.onerror = () => fin(false, 'Could not reach the sheet');
+  tag.src = 'https://docs.google.com/spreadsheets/d/' + id + '/gviz/tq?tqx=out:json;responseHandler:' + name +
+            '&sheet=' + encodeURIComponent('SKU Master') + '&headers=1';
+  document.body.appendChild(tag);
+  setTimeout(() => fin(false, 'Timed out reaching the sheet'), 10000);
 }
 
 // ============================================================================
@@ -2624,6 +2700,7 @@ function init() {
   renderMaster();
   renderHistory();
   renderBackupBanner();
+  loadSkuMasterFromSheet(true); // silent — fills in over whatever loadMaster() found, once the sheet responds
   const lastAnalysis = localStorage.getItem(STORAGE_KEYS.LAST_ANALYSIS);
   if (lastAnalysis) {
     document.getElementById('header-last-analysis').textContent = new Date(lastAnalysis).toLocaleString();
