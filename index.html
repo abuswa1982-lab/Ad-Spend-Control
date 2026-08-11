@@ -270,6 +270,43 @@ input[type="text"], input[type="number"], input[type="password"], textarea, sele
 input:focus, textarea:focus { border-color: var(--accent); }
 input.search { width: 280px; font-family: 'IBM Plex Mono', monospace; }
 
+/* Sheet bar (added for live-read) */
+.sheetbar {
+  background: rgba(88, 166, 255, 0.06);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.sheetlabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--blue);
+  font-weight: 600;
+  display: block;
+  margin-bottom: 8px;
+}
+.sheetrow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.sheetrow input[type="text"] { flex: 1; min-width: 260px; font-family: 'IBM Plex Mono', monospace; }
+.sheet-note { font-size: 11px; color: var(--text-faint); margin-top: 8px; }
+.ordiv {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-faint);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin: 16px 0;
+}
+.ordiv:before, .ordiv:after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
 /* STAT CARDS */
 .stat-grid {
   display: grid;
@@ -720,7 +757,7 @@ footer {
   <div class="brand">
     <div class="brand-mark">M</div>
     <span class="brand-text">Ad Spend Control</span>
-    <span class="brand-sub">Modonix · v1.3</span>
+    <span class="brand-sub">Modonix · v1.4</span>
   </div>
   <div class="header-right">
     <button class="btn-bk btn-bk-export" onclick="exportBackup()" title="Download backup JSON of master + snapshots + thresholds">⬇ Backup</button>
@@ -794,6 +831,18 @@ footer {
 
   <!-- GOOGLE ADS ANALYSIS TAB -->
   <section class="tab-panel" id="tab-ads">
+
+    <div class="sheetbar">
+      <label class="sheetlabel">Live Google Sheet — Product Weekly</label>
+      <div class="sheetrow">
+        <input type="text" id="sheet-url" placeholder="https://docs.google.com/spreadsheets/d/.../edit">
+        <button class="btn primary" onclick="loadFromSheet()">Load</button>
+        <button class="btn" id="sheet-refresh-btn" onclick="loadFromSheet()" style="display:none">⟳ Refresh</button>
+      </div>
+      <div class="sheet-note">Reads the "Product Weekly" tab your Google Ads script fills automatically. Hit Load once to pull it in, then Run Analysis below. Hit Refresh any time to pull the latest.</div>
+    </div>
+
+    <div class="ordiv">or paste / upload manually</div>
 
     <div class="banner info">
       <span>📊</span>
@@ -1112,7 +1161,8 @@ const STORAGE_KEYS = {
   FILTERS: 'modonix_ad_filters_v1',
   API_KEY: 'modonix_ad_apikey_v1',
   LAST_ANALYSIS: 'modonix_ad_last_analysis_v1',
-  SNAPSHOTS: 'modonix_ad_snapshots_v1'
+  SNAPSHOTS: 'modonix_ad_snapshots_v1',
+  SHEET_URL: 'modonix_ad_sheet_url_v1'
 };
 
 // Backup tracks its own metadata in a separate key (not part of any backup)
@@ -1187,6 +1237,103 @@ function onFilterChange() {
   if (state.results.cut.length || state.results.hold.length || state.results.scale.length) {
     renderResults();
   }
+}
+
+// ============================================================================
+// LIVE SHEET READ — "Product Weekly" tab (populated by the Google Ads script)
+// ============================================================================
+const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1Nw8QxkiZsyuHqEeNEQ4j7AjQsAwFQR1k30FGzTAYD_M/edit';
+const PRODUCT_TAB_NAME = 'Product Weekly';
+
+function saveSheetUrl() {
+  const el = document.getElementById('sheet-url');
+  if (el) localStorage.setItem(STORAGE_KEYS.SHEET_URL, el.value.trim());
+}
+function loadSheetUrlToUi() {
+  const el = document.getElementById('sheet-url');
+  if (!el) return;
+  const saved = localStorage.getItem(STORAGE_KEYS.SHEET_URL);
+  el.value = saved || DEFAULT_SHEET_URL;
+}
+
+function extractSheetId(raw) {
+  const m = (raw || '').match(/\/d\/([a-zA-Z0-9-_]+)/);
+  return m ? m[1] : null;
+}
+
+function gvizValNum(cell) {
+  if (cell == null) return 0;
+  const n = Number(cell.v);
+  return isFinite(n) ? n : 0;
+}
+function gvizValStr(cell) {
+  if (cell == null) return '';
+  return String(cell.v == null ? '' : cell.v);
+}
+
+function rowsFromProductGviz(resp) {
+  if (!resp || resp.status === 'error') return null;
+  const t = resp.table || {};
+  const rows = (t.rows || []).map(r => {
+    const c = r.c || [];
+    return {
+      sku: gvizValStr(c[0]),
+      cost: gvizValNum(c[1]),
+      revenue: gvizValNum(c[2])
+    };
+  }).filter(r => r.sku);
+  return rows;
+}
+
+function loadFromSheet() {
+  const raw = (document.getElementById('sheet-url').value || '').trim();
+  if (!raw) { toast('Paste your sheet link first', 'error'); return; }
+  saveSheetUrl();
+  const id = extractSheetId(raw);
+  if (!id) { toast('Could not read a sheet ID from that link', 'error'); return; }
+  if (!state.master.length) { toast('Load your SKU master first — needed to match products', 'error'); return; }
+
+  toast('Loading Product Weekly from your sheet…', '');
+  gvizLoadProducts(id, function (rows) {
+    if (!rows) {
+      toast('Could not reach that sheet — check the link and that it is shared "Anyone with the link"', 'error');
+      return;
+    }
+    if (!rows.length) {
+      toast('Connected, but the "Product Weekly" tab looks empty. Run the Google Ads script first.', 'error');
+      return;
+    }
+    // Build the same tab-separated shape the paste box already accepts,
+    // then reuse the existing parse + analysis path exactly as-is.
+    let txt = 'Item ID\tCost\tConv. value\n';
+    rows.forEach(r => { txt += r.sku + '\t' + r.cost + '\t' + r.revenue + '\n'; });
+    document.getElementById('ads-paste').value = txt;
+    document.getElementById('sheet-refresh-btn').style.display = '';
+    toast('Loaded ' + rows.length + ' products — running analysis…', 'success');
+    runAnalysis();
+  });
+}
+
+function gvizLoadProducts(sheetId, cb) {
+  const name = 'modonixProdGviz_' + Date.now();
+  let done = false;
+  const tag = document.createElement('script');
+  const cleanup = () => {
+    try { delete window[name]; } catch (e) { window[name] = undefined; }
+    if (tag.parentNode) tag.parentNode.removeChild(tag);
+  };
+  const finish = (rows) => { if (done) return; done = true; cleanup(); cb(rows); };
+  window[name] = function (resp) {
+    let rows = null;
+    try { rows = rowsFromProductGviz(resp); } catch (e) { rows = null; }
+    finish(rows);
+  };
+  tag.onerror = function () { finish(null); };
+  tag.src = 'https://docs.google.com/spreadsheets/d/' + sheetId +
+    '/gviz/tq?tqx=out:json;responseHandler:' + name +
+    '&sheet=' + encodeURIComponent(PRODUCT_TAB_NAME) + '&headers=1';
+  document.body.appendChild(tag);
+  setTimeout(() => finish(null), 10000);
 }
 
 // ============================================================================
@@ -2357,6 +2504,7 @@ function init() {
   loadThresholds();
   loadFilters();
   loadAPIKey();
+  loadSheetUrlToUi();
   renderMaster();
   renderHistory();
   renderBackupBanner();
