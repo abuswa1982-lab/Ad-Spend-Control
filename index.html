@@ -270,43 +270,6 @@ input[type="text"], input[type="number"], input[type="password"], textarea, sele
 input:focus, textarea:focus { border-color: var(--accent); }
 input.search { width: 280px; font-family: 'IBM Plex Mono', monospace; }
 
-/* Sheet bar (added for live-read) */
-.sheetbar {
-  background: rgba(88, 166, 255, 0.06);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 14px 16px;
-  margin-bottom: 16px;
-}
-.sheetlabel {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: var(--blue);
-  font-weight: 600;
-  display: block;
-  margin-bottom: 8px;
-}
-.sheetrow {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-.sheetrow input[type="text"] { flex: 1; min-width: 260px; font-family: 'IBM Plex Mono', monospace; }
-.sheet-note { font-size: 11px; color: var(--text-faint); margin-top: 8px; }
-.ordiv {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: var(--text-faint);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  margin: 16px 0;
-}
-.ordiv:before, .ordiv:after { content: ""; flex: 1; height: 1px; background: var(--border); }
-
 /* STAT CARDS */
 .stat-grid {
   display: grid;
@@ -741,6 +704,40 @@ details summary:hover { color: var(--text); }
   line-height: 1.6;
 }
 
+/* LIVE SHEET BAR (added v1.4) */
+.sheetbar {
+  background: rgba(88, 166, 255, 0.08);
+  border: 1px solid var(--blue);
+  border-radius: 4px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.sheetlabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--blue);
+  font-weight: 600;
+  display: block;
+  margin-bottom: 8px;
+}
+.sheetrow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.sheetrow input[type="text"] {
+  flex: 1;
+  min-width: 260px;
+  font-family: 'IBM Plex Mono', monospace;
+}
+.sheetnote {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 8px;
+}
+
 footer {
   text-align: center;
   padding: 32px 24px;
@@ -757,7 +754,7 @@ footer {
   <div class="brand">
     <div class="brand-mark">M</div>
     <span class="brand-text">Ad Spend Control</span>
-    <span class="brand-sub">Modonix · v1.4</span>
+    <span class="brand-sub">Modonix · v1.5</span>
   </div>
   <div class="header-right">
     <button class="btn-bk btn-bk-export" onclick="exportBackup()" title="Download backup JSON of master + snapshots + thresholds">⬇ Backup</button>
@@ -777,6 +774,7 @@ footer {
   <button class="tab-btn" data-tab="ads">Google Ads Analysis</button>
   <button class="tab-btn" data-tab="history">History</button>
   <button class="tab-btn" data-tab="ai">AI Recommendations</button>
+  <button class="tab-btn" data-tab="settings">Settings</button>
 </nav>
 
 <main>
@@ -835,19 +833,16 @@ footer {
     <div class="sheetbar">
       <label class="sheetlabel">Live Google Sheet — Product Weekly</label>
       <div class="sheetrow">
-        <input type="text" id="sheet-url" placeholder="https://docs.google.com/spreadsheets/d/.../edit">
-        <button class="btn primary" onclick="loadFromSheet()">Load</button>
-        <button class="btn" id="sheet-refresh-btn" onclick="loadFromSheet()" style="display:none">⟳ Refresh</button>
+        <input type="text" id="sheet-url" value="https://docs.google.com/spreadsheets/d/1Nw8QxkiZsyuHqEeNEQ4j7AjQsAwFQR1k30FGzTAYD_M/edit" placeholder="https://docs.google.com/spreadsheets/d/.../edit">
+        <button class="btn primary" onclick="loadFromSheet()">⟳ Load from Sheet</button>
       </div>
-      <div class="sheet-note">Reads the "Product Weekly" tab your Google Ads script fills automatically. Hit Load once to pull it in, then Run Analysis below. Hit Refresh any time to pull the latest.</div>
+      <div class="sheetnote">Pulls straight from the "Product Weekly" tab your Google Ads script fills in weekly. This fills the paste box below — click Run Analysis after loading, same as always.</div>
     </div>
-
-    <div class="ordiv">or paste / upload manually</div>
 
     <div class="banner info">
       <span>📊</span>
       <div>
-        Paste your Google Ads weekly export below (or upload CSV). Required columns: <strong>Item ID</strong>, <strong>Cost</strong>, <strong>Conv. value</strong>. Column headers are matched case-insensitively.
+        Or paste your Google Ads weekly export below (or upload CSV). Required columns: <strong>Item ID</strong>, <strong>Cost</strong>, <strong>Conv. value</strong>. Column headers are matched case-insensitively.
       </div>
     </div>
 
@@ -1072,6 +1067,35 @@ footer {
 
   </section>
 
+  <!-- SETTINGS TAB -->
+  <section class="tab-panel" id="tab-settings">
+
+    <div class="settings-panel">
+      <div class="section-title" style="margin-top:0;">Cloud Sync</div>
+      <p class="help-text">
+        Optional. Lets you access the same SKU master, thresholds, and saved snapshots from more than one computer.
+        Data is pushed to the cloud automatically and silently every time something changes here.
+        Pulling data down to this computer always requires you to click the button below and confirm — it will never happen by itself.
+      </p>
+      <div class="settings-grid" style="max-width:700px; margin-bottom:12px;">
+        <div class="setting">
+          <label>Sync URL</label>
+          <input type="text" id="cloud-url" placeholder="https://..." oninput="saveCloudUrl()">
+        </div>
+        <div class="setting">
+          <label>Secret</label>
+          <input type="password" id="cloud-secret" placeholder="secret key" oninput="saveCloudSecret()">
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <button class="btn" onclick="cloudPush(true)">Push Now</button>
+        <button class="btn" onclick="cloudPull(true)">Pull Latest</button>
+        <span id="cloud-sync-status" style="font-size:11px; color:var(--text-faint); font-family:'IBM Plex Mono', monospace;"></span>
+      </div>
+    </div>
+
+  </section>
+
 </main>
 
 <footer>
@@ -1162,8 +1186,10 @@ const STORAGE_KEYS = {
   API_KEY: 'modonix_ad_apikey_v1',
   LAST_ANALYSIS: 'modonix_ad_last_analysis_v1',
   SNAPSHOTS: 'modonix_ad_snapshots_v1',
-  SHEET_URL: 'modonix_ad_sheet_url_v1'
+  SHEET_URL: 'modonix_ad_sheeturl_v1'
 };
+
+const CLOUD_KEY = 'modonix_ad_cloud_sync_v1';
 
 // Backup tracks its own metadata in a separate key (not part of any backup)
 const BACKUP_META_KEY = 'modonix_ad_backup_meta_v1';
@@ -1181,6 +1207,7 @@ const BACKUP_KEYS = [
 function saveMaster() {
   try {
     localStorage.setItem(STORAGE_KEYS.MASTER, JSON.stringify(state.master));
+    scheduleCloudPush();
   } catch (e) {
     toast('Storage full — try fewer SKUs', 'error');
   }
@@ -1197,6 +1224,7 @@ function saveThresholds() {
   state.thresholds.minSpend = +document.getElementById('min-spend').value;
   document.getElementById('threshold-cut').value = state.thresholds.hold;
   localStorage.setItem(STORAGE_KEYS.THRESHOLDS, JSON.stringify(state.thresholds));
+  scheduleCloudPush();
 }
 function loadThresholds() {
   const raw = localStorage.getItem(STORAGE_KEYS.THRESHOLDS);
@@ -1221,6 +1249,7 @@ function loadAPIKey() {
 function saveFilters() {
   state.filters.hideCutBelow = +document.getElementById('filter-cut-min').value || 0;
   localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(state.filters));
+  scheduleCloudPush();
 }
 function loadFilters() {
   const raw = localStorage.getItem(STORAGE_KEYS.FILTERS);
@@ -1240,100 +1269,183 @@ function onFilterChange() {
 }
 
 // ============================================================================
-// LIVE SHEET READ — "Product Weekly" tab (populated by the Google Ads script)
+// LIVE GOOGLE SHEET — reads the "Product Weekly" tab the Ads Script fills in.
+// Read-only: this only ever populates the paste box below. It never runs
+// analysis by itself and never touches your SKU master or saved snapshots.
 // ============================================================================
-const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1Nw8QxkiZsyuHqEeNEQ4j7AjQsAwFQR1k30FGzTAYD_M/edit';
-const PRODUCT_TAB_NAME = 'Product Weekly';
-
 function saveSheetUrl() {
   const el = document.getElementById('sheet-url');
   if (el) localStorage.setItem(STORAGE_KEYS.SHEET_URL, el.value.trim());
 }
 function loadSheetUrlToUi() {
   const el = document.getElementById('sheet-url');
-  if (!el) return;
   const saved = localStorage.getItem(STORAGE_KEYS.SHEET_URL);
-  el.value = saved || DEFAULT_SHEET_URL;
+  if (el && saved) el.value = saved;
 }
 
 function extractSheetId(raw) {
-  const m = (raw || '').match(/\/d\/([a-zA-Z0-9-_]+)/);
-  return m ? m[1] : null;
+  const m = raw.match(/\/d\/([a-zA-Z0-9-_]+)/);
+  return m ? m[1] : (/^[a-zA-Z0-9-_]{20,}$/.test(raw) ? raw : null);
 }
 
-function gvizValNum(cell) {
-  if (cell == null) return 0;
-  const n = Number(cell.v);
-  return isFinite(n) ? n : 0;
-}
-function gvizValStr(cell) {
+function gvizCell(cell) {
   if (cell == null) return '';
-  return String(cell.v == null ? '' : cell.v);
+  const v = cell.v;
+  return v == null ? '' : v;
 }
 
-function rowsFromProductGviz(resp) {
+function rowsFromGviz(resp) {
   if (!resp || resp.status === 'error') return null;
   const t = resp.table || {};
-  const rows = (t.rows || []).map(r => {
-    const c = r.c || [];
-    return {
-      sku: gvizValStr(c[0]),
-      cost: gvizValNum(c[1]),
-      revenue: gvizValNum(c[2])
-    };
-  }).filter(r => r.sku);
-  return rows;
+  const header = (t.cols || []).map(c => c.label || '');
+  const rows = (t.rows || []).map(r => (r.c || []).map(gvizCell));
+  if (header.filter(Boolean).length < 2 && rows.length) return rows; // header row is already the first data row in this case
+  return [header, ...rows];
+}
+
+function rowsToTSV(rows) {
+  return rows.map(r => r.map(v => String(v)).join('\t')).join('\n');
 }
 
 function loadFromSheet() {
   const raw = (document.getElementById('sheet-url').value || '').trim();
-  if (!raw) { toast('Paste your sheet link first', 'error'); return; }
+  if (!raw) { toast('Paste your Google Sheet link first', 'error'); return; }
   saveSheetUrl();
   const id = extractSheetId(raw);
   if (!id) { toast('Could not read a sheet ID from that link', 'error'); return; }
-  if (!state.master.length) { toast('Load your SKU master first — needed to match products', 'error'); return; }
 
   toast('Loading Product Weekly from your sheet…', '');
-  gvizLoadProducts(id, function (rows) {
-    if (!rows) {
-      toast('Could not reach that sheet — check the link and that it is shared "Anyone with the link"', 'error');
-      return;
-    }
-    if (!rows.length) {
-      toast('Connected, but the "Product Weekly" tab looks empty. Run the Google Ads script first.', 'error');
-      return;
-    }
-    // Build the same tab-separated shape the paste box already accepts,
-    // then reuse the existing parse + analysis path exactly as-is.
-    let txt = 'Item ID\tCost\tConv. value\n';
-    rows.forEach(r => { txt += r.sku + '\t' + r.cost + '\t' + r.revenue + '\n'; });
-    document.getElementById('ads-paste').value = txt;
-    document.getElementById('sheet-refresh-btn').style.display = '';
-    toast('Loaded ' + rows.length + ' products — running analysis…', 'success');
-    runAnalysis();
-  });
-}
-
-function gvizLoadProducts(sheetId, cb) {
-  const name = 'modonixProdGviz_' + Date.now();
+  const name = 'modonixAdSheet_' + Date.now();
   let done = false;
   const tag = document.createElement('script');
-  const cleanup = () => {
-    try { delete window[name]; } catch (e) { window[name] = undefined; }
-    if (tag.parentNode) tag.parentNode.removeChild(tag);
+  const cleanup = () => { try { delete window[name]; } catch (e) { window[name] = undefined; } if (tag.parentNode) tag.parentNode.removeChild(tag); };
+  const fin = (ok, msg) => {
+    if (done) return; done = true; cleanup();
+    if (!ok) toast(msg || 'Could not read the "Product Weekly" tab — check the link and that the tab exists', 'error');
   };
-  const finish = (rows) => { if (done) return; done = true; cleanup(); cb(rows); };
   window[name] = function (resp) {
-    let rows = null;
-    try { rows = rowsFromProductGviz(resp); } catch (e) { rows = null; }
-    finish(rows);
+    const rows = rowsFromGviz(resp);
+    if (!rows || rows.length < 2) { fin(false, 'Sheet reached, but "Product Weekly" tab looks empty'); return; }
+    document.getElementById('ads-paste').value = rowsToTSV(rows);
+    toast(`Loaded ${rows.length - 1} products from the sheet — click Run Analysis`, 'success');
+    fin(true);
   };
-  tag.onerror = function () { finish(null); };
-  tag.src = 'https://docs.google.com/spreadsheets/d/' + sheetId +
-    '/gviz/tq?tqx=out:json;responseHandler:' + name +
-    '&sheet=' + encodeURIComponent(PRODUCT_TAB_NAME) + '&headers=1';
+  tag.onerror = () => fin(false);
+  tag.src = 'https://docs.google.com/spreadsheets/d/' + id + '/gviz/tq?tqx=out:json;responseHandler:' + name +
+            '&sheet=' + encodeURIComponent('Product Weekly') + '&headers=1';
   document.body.appendChild(tag);
-  setTimeout(() => finish(null), 10000);
+  setTimeout(() => fin(false, 'Timed out reaching the sheet — check the link and your connection'), 10000);
+}
+
+// ============================================================================
+// CLOUD SYNC — push happens automatically after every save (silent, best-effort).
+// Pull always requires an explicit click + confirmation, same pattern as Restore.
+// Syncs the same data a backup file contains: SKU master, thresholds, filters,
+// last-analysis timestamp, and snapshots. Never syncs the API key.
+// ============================================================================
+let cloudSettings = { url: '', secret: '' };
+try {
+  const raw = localStorage.getItem(CLOUD_KEY);
+  if (raw) cloudSettings = { ...cloudSettings, ...JSON.parse(raw) };
+} catch (e) {}
+
+function saveCloudSettings() { localStorage.setItem(CLOUD_KEY, JSON.stringify(cloudSettings)); }
+function saveCloudUrl() { cloudSettings.url = document.getElementById('cloud-url').value.trim(); saveCloudSettings(); }
+function saveCloudSecret() { cloudSettings.secret = document.getElementById('cloud-secret').value.trim(); saveCloudSettings(); }
+function loadCloudSettingsToUi() {
+  const u = document.getElementById('cloud-url');
+  const s = document.getElementById('cloud-secret');
+  if (u) u.value = cloudSettings.url || '';
+  if (s) s.value = cloudSettings.secret || '';
+}
+function setCloudStatus(msg) {
+  const el = document.getElementById('cloud-sync-status');
+  if (el) el.textContent = msg;
+}
+
+function collectCloudPayload() {
+  const data = {};
+  BACKUP_KEYS.forEach(key => {
+    const raw = localStorage.getItem(key);
+    if (raw !== null) data[key] = raw;
+  });
+  return JSON.stringify(data);
+}
+
+let cloudPushTimer = null;
+function scheduleCloudPush() {
+  if (!cloudSettings.url || !cloudSettings.secret) return; // not configured — do nothing
+  clearTimeout(cloudPushTimer);
+  cloudPushTimer = setTimeout(() => cloudPush(false), 1500);
+}
+
+async function cloudPush(manual) {
+  if (!cloudSettings.url || !cloudSettings.secret) {
+    if (manual) toast('Add your Sync URL and Secret in Settings first', 'error');
+    return;
+  }
+  try {
+    const resp = await fetch(cloudSettings.url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ secret: cloudSettings.secret, data: collectCloudPayload() })
+    });
+    if (!resp.ok) throw new Error('Server returned ' + resp.status);
+    setCloudStatus('Last pushed: ' + new Date().toLocaleTimeString());
+    if (manual) toast('Pushed to cloud', 'success');
+  } catch (err) {
+    setCloudStatus('Push failed — will retry on next save');
+    if (manual) toast('Could not reach cloud sync URL — check the link and your connection', 'error');
+  }
+}
+
+async function cloudPull(manual) {
+  if (!cloudSettings.url || !cloudSettings.secret) {
+    if (manual) toast('Add your Sync URL and Secret in Settings first', 'error');
+    return;
+  }
+  try {
+    const sep = cloudSettings.url.indexOf('?') > -1 ? '&' : '?';
+    const resp = await fetch(cloudSettings.url + sep + 'secret=' + encodeURIComponent(cloudSettings.secret) + '&_ts=' + Date.now(), { cache: 'no-store' });
+    if (!resp.ok) throw new Error('Server returned ' + resp.status);
+    const payload = await resp.json();
+    if (!payload || !payload.data) {
+      setCloudStatus('Nothing in the cloud yet');
+      if (manual) toast('No data found in the cloud yet — push first', 'error');
+      return;
+    }
+    if (manual) {
+      let dataMap;
+      try { dataMap = JSON.parse(payload.data); }
+      catch (e) { toast('Cloud data looked corrupted — could not read it', 'error'); return; }
+
+      let masterCount = 0, snapCount = 0;
+      try {
+        if (dataMap[STORAGE_KEYS.MASTER]) masterCount = JSON.parse(dataMap[STORAGE_KEYS.MASTER]).length || 0;
+        if (dataMap[STORAGE_KEYS.SNAPSHOTS]) snapCount = JSON.parse(dataMap[STORAGE_KEYS.SNAPSHOTS]).length || 0;
+      } catch (e) {}
+
+      customConfirm(
+        `This REPLACES all current data on this computer (${state.master.length} SKUs, ${loadSnapshots().length} snapshots) with the cloud version (${masterCount} SKUs, ${snapCount} snapshots). Continue?`,
+        () => {
+          BACKUP_KEYS.forEach(key => {
+            if (dataMap[key] !== undefined && dataMap[key] !== null) {
+              try { localStorage.setItem(key, dataMap[key]); } catch (e) {}
+            } else {
+              localStorage.removeItem(key);
+            }
+          });
+          setCloudStatus('Pulled: ' + new Date().toLocaleTimeString());
+          toast('Pulled from cloud — reloading...', 'success');
+          setTimeout(() => location.reload(), 800);
+        },
+        { title: 'Pull From Cloud', yesLabel: 'Replace With Cloud Version', danger: true }
+      );
+    }
+  } catch (err) {
+    setCloudStatus('Pull failed — check the link and your connection');
+    if (manual) toast('Could not reach cloud sync URL — check the link and your connection', 'error');
+  }
 }
 
 // ============================================================================
@@ -1466,6 +1578,7 @@ function importBackup() {
           document.getElementById('ads-paste').value = '';
 
           renderBackupBanner();
+          scheduleCloudPush();
           toast(`Restored ${masterCount} SKUs and ${snapCount} snapshots`, 'success');
         },
         { title: 'Restore from Backup', yesLabel: 'Restore' }
@@ -1513,6 +1626,7 @@ function loadSnapshots() {
 function persistSnapshots(snapshots) {
   try {
     localStorage.setItem(STORAGE_KEYS.SNAPSHOTS, JSON.stringify(snapshots));
+    scheduleCloudPush();
     return true;
   } catch (e) {
     toast('Storage full — export & clear old snapshots', 'error');
@@ -2160,6 +2274,7 @@ function runAnalysis() {
   const now = new Date();
   localStorage.setItem(STORAGE_KEYS.LAST_ANALYSIS, now.toISOString());
   document.getElementById('header-last-analysis').textContent = now.toLocaleString();
+  scheduleCloudPush();
 
   renderResults();
   document.getElementById('analysis-results').style.display = 'block';
@@ -2505,6 +2620,7 @@ function init() {
   loadFilters();
   loadAPIKey();
   loadSheetUrlToUi();
+  loadCloudSettingsToUi();
   renderMaster();
   renderHistory();
   renderBackupBanner();
